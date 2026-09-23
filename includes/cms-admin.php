@@ -198,6 +198,16 @@ function cfc_admin_dashboard(): never
         }
         $intro .= '<div class="cms-flash cms-flash--err">' . cfc_e((string) $issue) . '</div>';
     }
+    // The site never shows that the live feed has frozen, so say it here, where
+    // whoever can actually fix it lands. Only admins can reconnect the account.
+    if (cfc_admin_is_admin()) {
+        $ig = cfc_instagram_health();
+        if ($ig['level'] === 'err' || $ig['level'] === 'warn') {
+            $intro .= '<div class="cms-flash ' . ($ig['level'] === 'err' ? 'cms-flash--err' : 'cms-flash--warn') . '">'
+                . cfc_e($ig['message'])
+                . ' <a href="' . cfc_e(cfc_admin_url('p=instagram')) . '">Open Instagram Feed</a></div>';
+        }
+    }
     cfc_admin_layout('Dashboard', $intro . '<div class="cms-cards">' . $cards . '</div>', 'dash');
 }
 
@@ -323,36 +333,175 @@ function cfc_admin_page_editor(string $page): never
     cfc_admin_layout((string) ($schema['label'] ?? $page), $html, $page);
 }
 
+function cfc_admin_bytes(string $value): int
+{
+    $value = trim($value);
+    if ($value === '') {
+        return 0;
+    }
+    $num = (int) $value;
+    return match (strtolower(substr($value, -1))) {
+        'g' => $num * 1024 * 1024 * 1024,
+        'm' => $num * 1024 * 1024,
+        'k' => $num * 1024,
+        default => $num,
+    };
+}
+
+/**
+ * Largest single file the one-file-per-request uploader can push through, which
+ * is whichever of upload_max_filesize, post_max_size (less form overhead) and
+ * the CMS's own 16 MB ceiling is smallest.
+ */
+function cfc_admin_upload_limit_bytes(): int
+{
+    $post = cfc_admin_bytes((string) ini_get('post_max_size'));
+    $limits = [16 * 1024 * 1024];
+    $upload = cfc_admin_bytes((string) ini_get('upload_max_filesize'));
+    if ($upload > 0) {
+        $limits[] = $upload;
+    }
+    if ($post > 262144) {
+        $limits[] = $post - 262144;
+    }
+    return (int) min($limits);
+}
+
+function cfc_admin_gallery_tile(string $ref, array $img, int $n): string
+{
+    $src = cfc_media((string) ($img['thumb'] ?? $img['full'] ?? ''));
+    return '<div class="cms-gitem" data-img data-ref="' . cfc_e($ref) . '" draggable="true">'
+        . '<img src="' . cfc_e($src) . '" alt="" loading="lazy" draggable="false">'
+        . '<div class="cms-gitem__row">'
+        . '<label class="cms-pick"><input type="checkbox" data-img-pick><span>Select</span></label>'
+        . '<span class="cms-gitem__n" data-img-n>' . $n . '</span>'
+        . '</div>'
+        . '<div class="cms-gitem__acts">'
+        . '<button type="button" class="cms-mini" data-img-step="-1" title="Move earlier" aria-label="Move earlier">&#8592;</button>'
+        . '<button type="button" class="cms-mini" data-img-step="1" title="Move later" aria-label="Move later">&#8594;</button>'
+        . '<button type="button" class="cms-mini cms-mini--danger" data-img-del title="Remove photo" aria-label="Remove photo">&#10005;</button>'
+        . '</div></div>';
+}
+
+function cfc_admin_gallery_category(string $key, array $section, int $index, string $order): string
+{
+    $title = (string) ($section['title'] ?? '');
+    $level = (($section['level'] ?? 'h2') === 'h1') ? 'h1' : 'h2';
+    $count = count($section['images'] ?? []);
+    $k = cfc_e($key);
+
+    $html = '<section class="cms-group cms-cat" data-cat data-cat-key="' . $k . '">';
+    $html .= '<div class="cms-cat__bar">';
+    $html .= '<div class="cms-field cms-cat__name"><label class="cap">Category name</label>'
+        . '<input type="text" name="sections[' . $k . '][title]" value="' . cfc_e($title) . '" placeholder="e.g. Highway Outlets" data-cat-title></div>';
+    $html .= '<div class="cms-field cms-cat__lvl"><label class="cap">Heading level</label><select name="sections[' . $k . '][level]">'
+        . '<option value="h1"' . ($level === 'h1' ? ' selected' : '') . '>H1</option>'
+        . '<option value="h2"' . ($level === 'h2' ? ' selected' : '') . '>H2</option>'
+        . '</select></div>';
+    $html .= '<div class="cms-cat__tools">'
+        . '<span class="cms-cat__count" data-cat-count>' . $count . ' photo' . ($count === 1 ? '' : 's') . '</span>'
+        . '<button type="button" class="cms-mini" data-cat-step="-1" title="Move category up" aria-label="Move category up">&#8593;</button>'
+        . '<button type="button" class="cms-mini" data-cat-step="1" title="Move category down" aria-label="Move category down">&#8595;</button>'
+        . '<button type="button" class="cms-mini cms-mini--danger" data-cat-del>Delete category</button>'
+        . '</div>';
+    $html .= '</div>';
+    $html .= '<input type="hidden" name="sections[' . $k . '][order]" value="' . cfc_e($order) . '" data-cat-order>';
+    $html .= '<div class="cms-ggrid" data-cat-grid>';
+    foreach ($section['images'] ?? [] as $ii => $img) {
+        if (!is_array($img)) {
+            continue;
+        }
+        $html .= cfc_admin_gallery_tile($index . ':' . (int) $ii, $img, (int) $ii + 1);
+    }
+    $html .= '</div>';
+    $html .= '<p class="cms-ggrid__empty" data-cat-empty' . ($count > 0 ? ' hidden' : '') . '>No photos yet. Upload some above, or drag photos in from another category.</p>';
+    $html .= '<details class="cms-cat__fallback"><summary>Add photos without JavaScript</summary>'
+        . '<div class="cms-field"><input type="file" name="add[' . $k . '][]" accept="image/jpeg,image/png,image/webp,image/gif" multiple></div>'
+        . '<p class="cms-help">Fallback for when the uploader above cannot run. These are attached to the next save, so only a few files will get through at a time.</p></details>';
+    $html .= '</section>';
+    return $html;
+}
+
 function cfc_admin_gallery(): never
 {
     $sections = cfc_cms_gallery();
-    $html = '<form method="post" action="' . cfc_e(cfc_admin_url('p=gallery-images')) . '" enctype="multipart/form-data">';
+    $total = 0;
+    foreach ($sections as $section) {
+        $total += count($section['images'] ?? []);
+    }
+    $maxBytes = cfc_admin_upload_limit_bytes();
+    $maxMb = max(1, (int) floor($maxBytes / 1048576));
+
+    $html = '<form method="post" action="' . cfc_e(cfc_admin_url('p=gallery-images')) . '" enctype="multipart/form-data" data-gallery data-max-bytes="' . $maxBytes . '">';
     $html .= '<input type="hidden" name="cfc_csrf" value="' . cfc_e(cfc_csrf_token()) . '">';
     $html .= '<input type="hidden" name="cms_action" value="save_gallery">';
-    $html .= '<section class="cms-group"><h2>Replace one image</h2><p class="cms-help">Tick “Replace this” on a thumbnail, choose a file here, then save. PHP only accepts a few uploads at once, so gallery uses one replace per save.</p><div class="cms-field"><input type="file" name="replace_one" accept="image/*"></div></section>';
-    foreach ($sections as $si => $section) {
-        $html .= '<section class="cms-group"><h2>Section ' . ((int) $si + 1) . '</h2>';
-        $html .= '<div class="cms-field"><label class="cap">Title</label><input type="text" name="section_title[' . (int) $si . ']" value="' . cfc_e((string) ($section['title'] ?? '')) . '"></div>';
-        $html .= '<div class="cms-field"><label class="cap">Heading level</label><select name="section_level[' . (int) $si . ']">';
-        $lvl = (string) ($section['level'] ?? 'h2');
-        $html .= '<option value="h1"' . ($lvl === 'h1' ? ' selected' : '') . '>H1</option>';
-        $html .= '<option value="h2"' . ($lvl === 'h2' ? ' selected' : '') . '>H2</option></select></div>';
-        $html .= '<div class="cms-ggrid">';
-        foreach ($section['images'] ?? [] as $ii => $img) {
-            $src = cfc_media((string) ($img['thumb'] ?? $img['full'] ?? ''));
-            $html .= '<div class="cms-gitem">
-                <img src="' . cfc_e($src) . '" alt="">
-                <label><input type="radio" name="replace_at" value="' . (int) $si . ':' . (int) $ii . '"> Replace this</label>
-                <label><input type="checkbox" name="delete[' . (int) $si . '][' . (int) $ii . ']" value="1"> Delete</label>
-            </div>';
+
+    $html .= '<section class="cms-group"><h2>Add photos in bulk</h2>';
+    $html .= '<p class="cms-help">Pick as many images as you like. They are sent one at a time, so the usual cap on how many files one form can carry does not apply. Each photo is resized to 1920px wide, converted to WebP and given a small thumbnail, so the gallery stays fast. JPG, PNG, WebP or GIF, up to ' . $maxMb . ' MB each.</p>';
+    if ($sections === []) {
+        $html .= '<p class="cms-help"><strong>Add a category below and save it first</strong>, then come back here to upload.</p>';
+    } else {
+        $html .= '<div class="cms-upload">';
+        $html .= '<div class="cms-field"><label class="cap">Put them in this category</label><select data-up-target>';
+        foreach ($sections as $si => $section) {
+            $label = trim((string) ($section['title'] ?? ''));
+            if ($label === '') {
+                $label = 'Category ' . ((int) $si + 1);
+            }
+            $html .= '<option value="' . (int) $si . '" data-title="' . cfc_e(trim((string) ($section['title'] ?? ''))) . '">' . cfc_e($label) . '</option>';
         }
+        $html .= '</select></div>';
+        $html .= '<div class="cms-field"><label class="cap">Choose images</label>'
+            . '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-up-input></div>';
+        $html .= '<div class="cms-upload__go">'
+            . '<button class="cms-btn" type="button" data-up-start disabled>Upload</button> '
+            . '<button class="cms-btn cms-btn--ghost" type="button" data-up-stop hidden>Stop</button></div>';
+        $html .= '<div class="cms-up" data-up-panel hidden>'
+            . '<div class="cms-up__bar"><span data-up-fill></span></div>'
+            . '<p class="cms-up__stat" data-up-stat></p>'
+            . '<ul class="cms-up__log" data-up-log></ul>'
+            . '<button class="cms-btn cms-btn--ghost" type="button" data-up-reload hidden>Reload to arrange them</button>'
+            . '</div>';
         $html .= '</div>';
-        $html .= '<div class="cms-field"><label class="cap">Add images to this section</label><input type="file" name="add[' . (int) $si . '][]" accept="image/*" multiple></div>';
-        $html .= '</section>';
     }
-    $html .= '<div class="cms-actions"><button class="cms-btn" type="submit">Save gallery</button>
-      <a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_url('gallery/')) . '" target="_blank" rel="noopener">Preview</a></div></form>';
-    cfc_admin_layout('Gallery images', $html, 'gallery-images');
+    $html .= '</section>';
+
+    $html .= '<section class="cms-group"><h2>Categories &amp; order</h2>';
+    $html .= '<p class="cms-help">Drag a photo to move it inside its category or across to another one, or use the arrows. Tick photos to move or remove several at once. The order here is the order on the public gallery page. Nothing is applied until you press <strong>Save gallery</strong>.</p>';
+    $html .= '<p class="cms-help" data-total>' . $total . ' photo' . ($total === 1 ? '' : 's') . ' in ' . count($sections) . ' categor' . (count($sections) === 1 ? 'y' : 'ies') . '.</p>';
+    $html .= '</section>';
+
+    $html .= '<div data-cat-list>';
+    foreach ($sections as $si => $section) {
+        $refs = [];
+        foreach (array_keys($section['images'] ?? []) as $ii) {
+            $refs[] = (int) $si . ':' . (int) $ii;
+        }
+        $html .= cfc_admin_gallery_category((string) (int) $si, $section, (int) $si, implode(',', $refs));
+    }
+    $html .= '</div>';
+
+    $html .= '<div class="cms-actions">'
+        . '<button class="cms-btn" type="submit">Save gallery</button> '
+        . '<button class="cms-btn cms-btn--ghost" type="button" data-cat-add>Add category</button> '
+        . '<a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_url('gallery/')) . '" target="_blank" rel="noopener">Preview</a>'
+        . '<span class="cms-dirty" data-dirty hidden>Unsaved changes</span>'
+        . '</div>';
+    $html .= '</form>';
+
+    $html .= '<div class="cms-bulk" data-bulk hidden>'
+        . '<strong data-bulk-n>0 selected</strong>'
+        . '<select data-bulk-cat aria-label="Category to move the selected photos to"></select>'
+        . '<button type="button" class="cms-btn" data-bulk-move>Move here</button>'
+        . '<button type="button" class="cms-btn cms-btn--ghost" data-bulk-del>Remove</button>'
+        . '<button type="button" class="cms-btn cms-btn--ghost" data-bulk-clear>Clear</button>'
+        . '</div>';
+
+    $html .= '<template data-cat-template>'
+        . cfc_admin_gallery_category('__k__', ['title' => '', 'level' => 'h2', 'images' => []], 0, '')
+        . '</template>';
+
+    cfc_admin_layout('Gallery photos', $html, 'gallery-images');
 }
 
 function cfc_admin_media_hub(): never

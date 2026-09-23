@@ -358,8 +358,11 @@ function cfc_cms_write_json(string $file, array $data): bool
     if ($json === false) {
         return false;
     }
-    $tmp = $file . '.tmp';
+    // Unique per process: two writers sharing one .tmp path would overwrite each
+    // other's temp file, and the loser's rename() then fails on a missing file.
+    $tmp = $file . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
     if (file_put_contents($tmp, $json . "\n", LOCK_EX) === false) {
+        @unlink($tmp);
         return false;
     }
     if (!rename($tmp, $file)) {
@@ -583,6 +586,10 @@ function cfc_cms_upload(array $file, string $prefix = 'file', array $allow = [])
     $dir = cfc_cms_upload_dir();
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
         cfc_cms_notes('Upload folder is not writable.');
+        return null;
+    }
+    if (!cfc_cms_disk_has_room($dir, $size)) {
+        cfc_cms_notes('The server is low on disk space, so the upload was refused.');
         return null;
     }
     $safe = preg_replace('/[^a-z0-9]+/i', '-', strtolower($prefix)) ?: 'file';
@@ -846,47 +853,8 @@ function cfc_cms_gallery(): array
     return is_array($data) ? $data : [];
 }
 
-function cfc_cms_save_gallery(array $post, array $files): bool
+function cfc_cms_persist_gallery(array $out): bool
 {
-    $current = cfc_cms_gallery();
-    $titles = $post['section_title'] ?? [];
-    $levels = $post['section_level'] ?? [];
-    $delete = $post['delete'] ?? [];
-    $replaceAt = (string) ($post['replace_at'] ?? '');
-    $replaceSi = null;
-    $replaceIi = null;
-    if (preg_match('/^(\d+):(\d+)$/', $replaceAt, $m)) {
-        $replaceSi = (int) $m[1];
-        $replaceIi = (int) $m[2];
-    }
-    $out = [];
-    foreach ($current as $si => $section) {
-        $images = [];
-        foreach ($section['images'] ?? [] as $ii => $img) {
-            if (!empty($delete[$si][$ii])) {
-                continue;
-            }
-            if ($replaceSi === (int) $si && $replaceIi === (int) $ii && isset($files['replace_one'])) {
-                $path = cfc_cms_upload($files['replace_one'], 'gallery-' . $si, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-                $images[] = $path ? cfc_cms_gallery_entry($path) : $img;
-            } else {
-                $images[] = $img;
-            }
-        }
-        $added = cfc_cms_gallery_add_files($files, (int) $si);
-        foreach ($added as $img) {
-            $images[] = $img;
-        }
-        $title = trim((string) ($titles[$si] ?? ''));
-        if ($title === '') {
-            $title = (string) ($section['title'] ?? '');
-        }
-        $out[] = [
-            'title' => $title,
-            'level' => (($levels[$si] ?? ($section['level'] ?? 'h2')) === 'h1') ? 'h1' : 'h2',
-            'images' => $images,
-        ];
-    }
     $fileOk = cfc_cms_write_json(CFC_DATA . '/gallery.json', $out);
     if (cfc_db_ready()) {
         $dbOk = cfc_store_set('gallery', $out);
@@ -898,10 +866,268 @@ function cfc_cms_save_gallery(array $post, array $files): bool
     return $fileOk;
 }
 
-function cfc_cms_gallery_add_files(array $files, int $si): array
+function cfc_cms_last_note(string $fallback): string
+{
+    $notes = cfc_cms_notes();
+    $last = $notes === [] ? '' : trim((string) end($notes));
+    return $last !== '' ? $last : $fallback;
+}
+
+/**
+ * A posted value can be an array when the form is edited by hand, and casting
+ * one to string raises a warning that would land in the response. Coerce here.
+ */
+function cfc_cms_post_str(mixed $value): string
+{
+    return is_scalar($value) ? (string) $value : '';
+}
+
+/**
+ * Exclusive lock for the gallery read-modify-write. Bulk uploads save once per
+ * file, so two of them landing together would otherwise read the same gallery
+ * and the second would silently drop the first one's photo.
+ */
+function cfc_cms_gallery_lock()
+{
+    $fh = @fopen(CFC_DATA . '/gallery.lock', 'c');
+    if ($fh === false) {
+        return null;
+    }
+    if (!@flock($fh, LOCK_EX)) {
+        @fclose($fh);
+        return null;
+    }
+    return $fh;
+}
+
+function cfc_cms_gallery_unlock($fh): void
+{
+    if ($fh) {
+        @flock($fh, LOCK_UN);
+        @fclose($fh);
+    }
+}
+
+/**
+ * Cheap O(1) check: converting an image needs room for the original, the WebP
+ * and the thumbnail, and a full disk breaks far more than the gallery.
+ */
+function cfc_cms_disk_has_room(string $dir, int $incoming = 0): bool
+{
+    $min = max(0, (int) cfc_config('upload_min_free_bytes', 209715200));
+    if ($min === 0) {
+        return true;
+    }
+    $free = @disk_free_space($dir);
+    if ($free === false) {
+        return true; // cannot tell; do not block the editor on a guess
+    }
+    return $free > $min + ($incoming * 3);
+}
+
+/**
+ * A ceiling on bulk uploads, not a throttle. One request per photo is the whole
+ * design, so this is set far above any human pace and only catches a runaway
+ * loop or an account being abused. Keyed per editor, falling back to the IP.
+ */
+function cfc_cms_gallery_upload_rate_ok(): bool
+{
+    $who = (string) ($_SESSION['cfc_admin'] ?? '');
+    if ($who === '') {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $who = filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
+    }
+    if ($who === '') {
+        return true;
+    }
+    $limit = max(10, (int) cfc_config('gallery_upload_limit', 600));
+    $window = max(60, (int) cfc_config('gallery_upload_window', 3600));
+    return cfc_rate_limit_hit('gallery-upload:' . $who, $limit, $window);
+}
+
+/** Empty when the file really is WebP; otherwise why it is not. */
+function cfc_cms_gallery_convert_note(string $path): string
+{
+    $lower = strtolower($path);
+    if (str_ends_with($lower, '.webp')) {
+        return '';
+    }
+    if (str_ends_with($lower, '.gif')) {
+        return 'added as an animated GIF, which cannot be converted to WebP';
+    }
+    return 'added, but it could not be converted to WebP, so it is not compressed';
+}
+
+function cfc_cms_gallery_clean(array $img): array
+{
+    $full = cfc_cms_normalize_media((string) ($img['full'] ?? ''));
+    $thumb = cfc_cms_normalize_media((string) ($img['thumb'] ?? ''));
+    if ($full === '' && $thumb === '') {
+        return [];
+    }
+    return [
+        'thumb' => $thumb !== '' ? $thumb : $full,
+        'full' => $full !== '' ? $full : $thumb,
+        'w' => min(10000, max(1, (int) ($img['w'] ?? 720))),
+        'h' => min(10000, max(1, (int) ($img['h'] ?? 540))),
+    ];
+}
+
+/**
+ * Resolve a "sectionIndex:imageIndex" coordinate against the saved gallery.
+ * Reordering posts only these coordinates, never image paths, so an edited form
+ * cannot point the gallery at a file that was not already uploaded here.
+ */
+function cfc_cms_gallery_image_at(array $current, string $ref): array
+{
+    if (!preg_match('/^(\d+):(\d+)$/', $ref, $m)) {
+        return [];
+    }
+    $img = $current[(int) $m[1]]['images'][(int) $m[2]] ?? null;
+    return is_array($img) ? cfc_cms_gallery_clean($img) : [];
+}
+
+/**
+ * Rebuild the whole gallery from the posted category order. Each category sends
+ * its images as one comma separated list of coordinates, so dragging a photo to
+ * another category and dragging it up or down are the same operation, and the
+ * form stays well under max_input_vars no matter how many photos there are.
+ */
+function cfc_cms_save_gallery(array $post, array $files): bool
+{
+    $current = cfc_cms_gallery();
+    $sections = $post['sections'] ?? null;
+    if (!is_array($sections) || $sections === []) {
+        cfc_cms_notes('The form did not send any categories. Reload the page and try again.');
+        return false;
+    }
+    if (count($sections) > 200) {
+        cfc_cms_notes('That is more categories than the gallery supports.');
+        return false;
+    }
+    $seen = [];
+    $out = [];
+    foreach ($sections as $key => $meta) {
+        if (!is_array($meta)) {
+            continue;
+        }
+        $key = (string) $key;
+        $title = trim(cfc_cms_post_str($meta['title'] ?? ''));
+        if ($title === '' && ctype_digit($key) && isset($current[(int) $key])) {
+            $title = trim((string) ($current[(int) $key]['title'] ?? ''));
+        }
+        if ($title !== '' && strlen($title) > 200) {
+            $title = trim(cfc_clip($title, 200));
+            cfc_cms_notes('A category name was shortened to 200 characters.');
+        }
+        $images = [];
+        foreach (explode(',', cfc_cms_post_str($meta['order'] ?? '')) as $ref) {
+            if (!preg_match('/^\s*(\d{1,9}):(\d{1,9})\s*$/', $ref, $m)) {
+                continue;
+            }
+            $canon = (int) $m[1] . ':' . (int) $m[2]; // 00:07 and 0:7 are one photo
+            if (isset($seen[$canon])) {
+                continue;
+            }
+            $img = cfc_cms_gallery_image_at($current, $canon);
+            if ($img === []) {
+                continue;
+            }
+            $seen[$canon] = true;
+            $images[] = $img;
+        }
+        foreach (cfc_cms_gallery_add_files($files, $key) as $img) {
+            $images[] = $img;
+        }
+        if ($title === '' && $images === []) {
+            continue;
+        }
+        $out[] = [
+            'title' => $title,
+            'level' => cfc_cms_post_str($meta['level'] ?? 'h2') === 'h1' ? 'h1' : 'h2',
+            'images' => $images,
+        ];
+    }
+    if ($out === []) {
+        cfc_cms_notes('Name at least one category before saving.');
+        return false;
+    }
+    return cfc_cms_persist_gallery($out);
+}
+
+/**
+ * One image per request. The bulk uploader posts files one at a time so it is
+ * never capped by max_file_uploads or post_max_size; each file is converted,
+ * appended to the chosen category and saved straight away.
+ */
+function cfc_cms_gallery_add_one(array $file, int $si, string $expectTitle = ''): array
+{
+    $current = cfc_cms_gallery();
+    if ($si < 0 || !isset($current[$si]) || !is_array($current[$si])) {
+        return ['ok' => false, 'fatal' => true, 'error' => 'That category no longer exists. Reload the page.'];
+    }
+    // The browser picked this category by position. If the categories have been
+    // renamed or reordered since the page loaded, the position now means a
+    // different category, so refuse rather than file the photo in the wrong one.
+    if ($expectTitle !== '' && trim((string) ($current[$si]['title'] ?? '')) !== $expectTitle) {
+        return ['ok' => false, 'fatal' => true, 'error' => 'The categories changed since this page loaded. Reload and upload again.'];
+    }
+
+    // Both of these will reject every remaining file in the batch as well, so
+    // they are flagged fatal and checked before any conversion work is done.
+    if (!cfc_cms_gallery_upload_rate_ok()) {
+        return [
+            'ok' => false,
+            'fatal' => true,
+            'error' => 'The hourly upload limit has been reached. Wait a while, then upload the rest.',
+        ];
+    }
+    if (!cfc_cms_disk_has_room(cfc_cms_upload_dir(), (int) ($file['size'] ?? 0))) {
+        return [
+            'ok' => false,
+            'fatal' => true,
+            'error' => 'The server is low on disk space. Free some space before uploading more.',
+        ];
+    }
+
+    $path = cfc_cms_upload($file, 'gallery-' . $si, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    if ($path === null) {
+        return ['ok' => false, 'error' => cfc_cms_last_note('The image could not be uploaded.')];
+    }
+    $entry = cfc_cms_gallery_entry($path);
+
+    // Re-read inside the lock: converting the image takes long enough that
+    // another upload could have saved in the meantime.
+    $lock = cfc_cms_gallery_lock();
+    $current = cfc_cms_gallery();
+    if (!isset($current[$si]) || !is_array($current[$si])) {
+        cfc_cms_gallery_unlock($lock);
+        return ['ok' => false, 'fatal' => true, 'error' => 'That category was removed while the image was converting. Reload the page.'];
+    }
+    $images = $current[$si]['images'] ?? [];
+    if (!is_array($images)) {
+        $images = [];
+    }
+    $images[] = $entry;
+    $current[$si]['images'] = array_values($images);
+    $saved = cfc_cms_persist_gallery($current);
+    cfc_cms_gallery_unlock($lock);
+
+    if (!$saved) {
+        return ['ok' => false, 'error' => cfc_cms_last_note('The image was converted but could not be saved.')];
+    }
+    $result = ['ok' => true, 'image' => $entry];
+    $note = cfc_cms_gallery_convert_note($path);
+    if ($note !== '') {
+        $result['warning'] = $note;
+    }
+    return $result;
+}
+
+function cfc_cms_gallery_add_files(array $files, int|string $si): array
 {
     $bag = $files['add'] ?? null;
-    if (!$bag || !isset($bag['name'][$si]) || !is_array($bag['name'][$si])) {
+    if (!is_array($bag) || !isset($bag['name'][$si]) || !is_array($bag['name'][$si])) {
         return [];
     }
     $out = [];
@@ -933,9 +1159,11 @@ function cfc_cms_gallery_entry(string $fullPath): array
     $thumbRel = $fullPath;
     $dir = cfc_cms_upload_dir();
     $base = pathinfo($abs, PATHINFO_FILENAME);
-    $thumbAbs = $dir . '/' . $base . '-thumb.webp';
+    // Without imagewebp, make_thumb falls back to JPEG, so do not name it .webp.
+    $thumbExt = function_exists('imagewebp') ? 'webp' : 'jpg';
+    $thumbAbs = $dir . '/' . $base . '-thumb.' . $thumbExt;
     if (cfc_cms_make_thumb($abs, $thumbAbs, 720)) {
-        $thumbRel = 'uploads/cms/' . $base . '-thumb.webp';
+        $thumbRel = 'uploads/cms/' . $base . '-thumb.' . $thumbExt;
         $tinfo = @getimagesize($thumbAbs);
         if ($tinfo) {
             $w = (int) $tinfo[0];

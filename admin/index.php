@@ -23,6 +23,8 @@ if (cfc_users_reload() === []) {
         $failAt = (int) ($_SESSION['cfc_admin_fail_at'] ?? 0);
         if ($fails >= 8 && (time() - $failAt) < 600) {
             $error = 'Too many attempts. Try again in a few minutes.';
+        } elseif (!cfc_admin_login_rate_ok()) {
+            $error = 'Too many attempts. Try again later.';
         } elseif (!cfc_csrf_verify((string) ($_POST['cfc_csrf'] ?? ''))) {
             $error = 'Please refresh and try again.';
         } elseif (!cfc_debug() && !cfc_setup_key_configured()) {
@@ -47,6 +49,7 @@ if (cfc_users_reload() === []) {
                     $_SESSION['cfc_admin_role'] = 'admin';
                     $_SESSION['cfc_admin_seen'] = time();
                     unset($_SESSION['cfc_admin_fails'], $_SESSION['cfc_admin_fail_at']);
+                    cfc_admin_login_rate_clear();
                     cfc_redirect('admin/');
                 }
             }
@@ -64,6 +67,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['username']) &
     $failAt = (int) ($_SESSION['cfc_admin_fail_at'] ?? 0);
     if ($fails >= 8 && (time() - $failAt) < 600) {
         $error = 'Too many sign-in attempts. Try again in a few minutes.';
+    } elseif (!cfc_admin_login_rate_ok()) {
+        // Keyed to the IP, so clearing cookies does not hand out a fresh budget.
+        $error = 'Too many sign-in attempts. Try again later.';
     } else {
         if ($fails >= 8) {
             $fails = 0;
@@ -80,6 +86,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['username']) &
             $_SESSION['cfc_admin_role'] = (string) ($account['role'] ?? 'editor');
             $_SESSION['cfc_admin_seen'] = time();
             unset($_SESSION['cfc_admin_fails'], $_SESSION['cfc_admin_fail_at']);
+            cfc_admin_login_rate_clear();
             cfc_redirect('admin/');
         }
         $_SESSION['cfc_admin_fails'] = $fails + 1;
@@ -119,6 +126,22 @@ if ($_SESSION['cfc_admin'] === true) {
 
 $page = (string) ($_GET['p'] ?? '');
 $action = (string) ($_POST['cms_action'] ?? '');
+
+// One image per request, answered as JSON, so the bulk uploader is never capped
+// by max_file_uploads or post_max_size. Must run before the redirecting handlers.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action === 'upload_gallery_image') {
+    if (!cfc_csrf_verify((string) ($_POST['cfc_csrf'] ?? ''))) {
+        cfc_json(403, ['ok' => false, 'error' => 'Your session expired. Reload the page and sign in again.']);
+    }
+    @set_time_limit(120);
+    $file = $_FILES['file'] ?? [];
+    $result = cfc_cms_gallery_add_one(
+        is_array($file) ? $file : [],
+        (int) ($_POST['section'] ?? -1),
+        trim(cfc_cms_post_str($_POST['section_title'] ?? ''))
+    );
+    cfc_json(!empty($result['ok']) ? 200 : 400, $result);
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '') {
     if (!cfc_csrf_verify((string) ($_POST['cfc_csrf'] ?? ''))) {

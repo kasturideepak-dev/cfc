@@ -1024,6 +1024,29 @@ function cfc_db_migrate_json_redirects(PDO $pdo): void
     }
 }
 
+/**
+ * Wipe one key's history. Used when a sign-in succeeds, so a real editor is
+ * never locked out by someone else guessing from the same address; a guesser
+ * never gets here, because they never authenticate.
+ */
+function cfc_rate_limit_clear(string $key): void
+{
+    $hashed = hash('sha256', $key);
+    $pdo = cfc_pdo();
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare('DELETE FROM cfc_rate_limits WHERE rate_key = ?');
+            $stmt->execute([$hashed]);
+        } catch (Throwable $e) {
+            error_log('CFC rate limit clear failed: ' . $e->getMessage());
+        }
+    }
+    $file = CFC_DATA . '/submissions/.rate-' . $hashed;
+    if (is_file($file)) {
+        @unlink($file);
+    }
+}
+
 function cfc_rate_limit_hit(string $ip, int $limit, int $window): bool
 {
     $now = time();

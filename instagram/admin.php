@@ -110,9 +110,17 @@ function cfc_instagram_admin_page(): never
     } elseif (!$connected) {
         $status = '<div class="cms-flash cms-flash--err">No access token yet. Connect Instagram or paste a long-lived token from the Meta App Dashboard.</div>';
     } elseif ($s['last_sync_ok'] === '0' && $s['last_error'] !== '') {
-        $status = '<div class="cms-flash cms-flash--err">Last sync failed: ' . cfc_e($s['last_error']) . ($s['last_error_code'] !== '' ? ' (code ' . cfc_e($s['last_error_code']) . ')' : '') . '</div>';
+        $status = '<div class="cms-flash cms-flash--err">Last sync failed: ' . cfc_e(cfc_instagram_redact($s['last_error'])) . ($s['last_error_code'] !== '' ? ' (code ' . cfc_e($s['last_error_code']) . ')' : '') . '</div>';
     } elseif ($s['last_sync_ok'] === '1') {
-        $status = '<div class="cms-flash cms-flash--ok">Last successful sync: ' . cfc_e($s['last_sync_at'] !== '' ? $s['last_sync_at'] : 'unknown') . '. Cached posts: ' . (int) $count . '.</div>';
+        // Green only while the feed is genuinely current; a date on its own
+        // reads as healthy even when the sync stopped weeks ago.
+        $health = cfc_instagram_health();
+        $line = 'Last successful sync: ' . cfc_e($s['last_sync_at'] !== '' ? $s['last_sync_at'] : 'unknown')
+            . '. Cached posts: ' . (int) $count . '.';
+        $status = $health['level'] === 'warn'
+            ? '<div class="cms-flash cms-flash--warn">' . cfc_e($health['message']) . '</div>'
+                . '<div class="cms-flash">' . $line . '</div>'
+            : '<div class="cms-flash cms-flash--ok">' . $line . '</div>';
     }
 
     $preview = '';

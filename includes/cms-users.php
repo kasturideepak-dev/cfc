@@ -151,6 +151,32 @@ function cfc_user_auth(string $username, string $password): ?array
     return $user;
 }
 
+/**
+ * Per-IP sign-in ceiling. The in-session failure counter is the first line, but
+ * an attacker who throws the cookie away gets a fresh counter every time, so
+ * the durable limit has to be keyed to something they cannot discard.
+ * Counts every attempt, not just failures: the limit is set high enough that a
+ * real editor will never reach it.
+ */
+function cfc_admin_login_rate_ok(): bool
+{
+    $ip = cfc_client_ip();
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        return true;
+    }
+    $limit = max(3, (int) cfc_config('admin_login_limit', 20));
+    $window = max(60, (int) cfc_config('admin_login_window', 900));
+    return cfc_rate_limit_hit('admin-login:' . $ip, $limit, $window);
+}
+
+function cfc_admin_login_rate_clear(): void
+{
+    $ip = cfc_client_ip();
+    if (filter_var($ip, FILTER_VALIDATE_IP)) {
+        cfc_rate_limit_clear('admin-login:' . $ip);
+    }
+}
+
 function cfc_admin_me(): ?array
 {
     $id = $_SESSION['cfc_admin'] ?? null;

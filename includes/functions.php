@@ -418,6 +418,95 @@ function cfc_lower(string $value): string
     return function_exists('mb_strtolower') ? mb_strtolower($value) : strtolower($value);
 }
 
+/** Match an address against one CIDR block, or a bare address. IPv4 and IPv6. */
+function cfc_ip_in_cidr(string $ip, string $cidr): bool
+{
+    $cidr = trim($cidr);
+    if ($cidr === '') {
+        return false;
+    }
+    if (!str_contains($cidr, '/')) {
+        return $ip === $cidr;
+    }
+    [$net, $bitsRaw] = explode('/', $cidr, 2);
+    $ipBin = @inet_pton($ip);
+    $netBin = @inet_pton(trim($net));
+    if ($ipBin === false || $netBin === false || strlen($ipBin) !== strlen($netBin)) {
+        return false;
+    }
+    $bits = (int) $bitsRaw;
+    $max = strlen($ipBin) * 8;
+    if ($bits < 0 || $bits > $max) {
+        return false;
+    }
+    if ($bits === 0) {
+        return true;
+    }
+    $whole = intdiv($bits, 8);
+    $rest = $bits % 8;
+    if ($whole > 0 && strncmp($ipBin, $netBin, $whole) !== 0) {
+        return false;
+    }
+    if ($rest === 0) {
+        return true;
+    }
+    $mask = chr((0xFF << (8 - $rest)) & 0xFF);
+    return ($ipBin[$whole] & $mask) === ($netBin[$whole] & $mask);
+}
+
+function cfc_ip_in_ranges(string $ip, array $ranges): bool
+{
+    foreach ($ranges as $range) {
+        if (is_string($range) && cfc_ip_in_cidr($ip, $range)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * The visitor's address, for rate limiting and abuse logging.
+ *
+ * Behind a CDN, REMOTE_ADDR is the edge server, so every visitor shares one
+ * bucket. The forwarded headers carry the real address but anyone can send
+ * them, and believing them blindly is worse than ignoring them: an attacker
+ * would get a fresh bucket per request. So they are only read when the request
+ * genuinely arrived from an address in 'trusted_proxies', which is empty by
+ * default. Empty means this returns REMOTE_ADDR and nothing changes.
+ */
+function cfc_client_ip(): string
+{
+    $remote = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+        return '';
+    }
+    $trusted = cfc_config('trusted_proxies', []);
+    if (!is_array($trusted) || $trusted === [] || !cfc_ip_in_ranges($remote, $trusted)) {
+        return $remote;
+    }
+    $cf = trim((string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+    if (filter_var($cf, FILTER_VALIDATE_IP)) {
+        return $cf;
+    }
+    // X-Forwarded-For is client-first, proxy-appended. Walk from the right and
+    // take the first address our own proxies did not add; anything left of it
+    // was supplied by the caller and cannot be trusted.
+    $fwd = (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+    if ($fwd !== '') {
+        $parts = array_map('trim', explode(',', $fwd));
+        for ($i = count($parts) - 1; $i >= 0; $i--) {
+            if (!filter_var($parts[$i], FILTER_VALIDATE_IP)) {
+                continue;
+            }
+            if (cfc_ip_in_ranges($parts[$i], $trusted)) {
+                continue;
+            }
+            return $parts[$i];
+        }
+    }
+    return $remote;
+}
+
 function cfc_csrf_token(): string
 {
     if (empty($_SESSION['cfc_csrf']) || !is_string($_SESSION['cfc_csrf'])) {

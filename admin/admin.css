@@ -65,6 +65,7 @@ body.cms {
   box-shadow: 0 1px 0 rgba(0,0,0,.06);
 }
 .cms-btn:hover { filter: brightness(1.04); }
+.cms-btn[hidden] { display: none; }
 .cms-login .err { color: var(--cfc-danger); margin: 0 0 8px; }
 
 .cms-shell { display: flex; min-height: 100vh; }
@@ -176,6 +177,7 @@ body.cms {
 }
 .cms-flash--ok { background: #e7f6ec; color: var(--cfc-ok); }
 .cms-flash--err { background: #fdecea; color: var(--cfc-danger); }
+.cms-flash--warn { background: #fff5e0; color: #8a5a00; }
 
 .cms-cards {
   display: grid;
@@ -536,6 +538,159 @@ table.cms-table {
 }
 .cms-gitem label { font-size: 12px; display: flex; gap: 6px; align-items: center; }
 
+/* Gallery photos editor */
+.cms-ggrid { min-height: 56px; }
+.cms-ggrid.is-drop {
+  outline: 2px dashed var(--cfc-gold);
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: #fffaf0;
+}
+.cms-ggrid__empty {
+  margin: 8px 0 0;
+  color: var(--cfc-muted);
+  font-size: 12px;
+}
+.cms-gitem { cursor: grab; }
+.cms-gitem.is-dragging { opacity: .4; }
+.cms-gitem img { pointer-events: none; }
+.cms-gitem__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.cms-gitem__n {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cfc-muted);
+  background: #f3ece6;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.cms-gitem__acts {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.cms-pick { cursor: pointer; }
+.cms-mini {
+  flex: 1;
+  border: 1px solid #d7c8bb;
+  background: #fff;
+  color: var(--cfc-ink);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.cms-mini:hover { background: #fbf5ee; border-color: var(--cfc-gold); }
+.cms-mini--danger { color: var(--cfc-danger); }
+.cms-mini--danger:hover { background: #fdecea; border-color: var(--cfc-danger); }
+
+.cms-cat__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+.cms-cat__name { flex: 1 1 240px; margin: 0; }
+.cms-cat__lvl { flex: 0 0 110px; margin: 0; }
+.cms-cat__tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-bottom: 2px;
+}
+.cms-cat__tools .cms-mini { flex: 0 0 auto; }
+.cms-cat__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cfc-muted);
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.cms-cat__fallback { margin: 12px 0 0; }
+.cms-cat__fallback summary {
+  font-size: 12px;
+  color: var(--cfc-muted);
+  cursor: pointer;
+}
+.cms-cat__fallback .cms-field { margin: 10px 0 4px; }
+
+.cms-upload__go { display: flex; gap: 8px; align-items: center; }
+.cms-up { margin: 14px 0 6px; }
+.cms-up__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #f3ece6;
+  overflow: hidden;
+}
+.cms-up__bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--cfc-gold);
+  transition: width .15s linear;
+}
+.cms-up__stat {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.cms-up__log {
+  margin: 8px 0 0;
+  padding: 0 0 0 2px;
+  list-style: none;
+  max-height: 170px;
+  overflow: auto;
+  font-size: 12px;
+}
+.cms-up__log li { padding: 2px 0; overflow-wrap: anywhere; }
+.cms-up__log li.is-ok { color: var(--cfc-ok); }
+.cms-up__log li.is-err { color: var(--cfc-danger); }
+.cms-up__log li.is-warn { color: #8a5a00; }
+
+.cms-dirty {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cfc-danger);
+}
+.cms-bulk {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--cfc-line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.14);
+  max-width: calc(100vw - 32px);
+}
+.cms-bulk[hidden] { display: none; }
+.cms-bulk strong { font-size: 13px; white-space: nowrap; }
+.cms-bulk select {
+  padding: 7px 9px;
+  border: 1px solid #d7c8bb;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  max-width: 180px;
+}
+.cms-bulk .cms-btn { margin-top: 0; padding: 8px 14px; font-size: 13px; }
+
 @media (max-width: 800px) {
   .cms-shell { display: block; }
   .cms-side {
@@ -567,4 +722,6 @@ table.cms-table {
   }
   .cms-post__media { width: 88px; height: 66px; }
   .cms-post__edit { justify-self: start; }
+  .cms-cat__tools { margin-left: 0; width: 100%; }
+  .cms-bulk { bottom: 8px; padding: 8px 10px; gap: 6px; }
 }
