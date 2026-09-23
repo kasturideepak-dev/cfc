@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /form/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /pages/
+Disallow: /scripts/
+Disallow: /docs/
+Disallow: /data/
+Disallow: /lib/
+Disallow: /assets/2024/04/CFC-Franchise.pdf
+Disallow: /assets/pdfs/CFC-Franchise.pdf
+Disallow: /assets/pdfs/CFC-Outlet-Presentation.pdf

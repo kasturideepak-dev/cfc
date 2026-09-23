@@ -1,0 +1,17 @@
+[
+    {
+        "from": "/product-category/lemon-tea/",
+        "to": "https://www.andaalhomefoods.com/collections/coffee/products/lemon-tea?variant=42499446767706",
+        "code": 301
+    },
+    {
+        "from": "/product-category/coffee-powder/",
+        "to": "https://www.andaalhomefoods.com/products/coffee-powder?variant=42499446243418",
+        "code": 301
+    },
+    {
+        "from": "/product-category/honey/",
+        "to": "https://www.andaalhomefoods.com/products/organic-honey?variant=42121826762842",
+        "code": 301
+    }
+]

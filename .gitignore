@@ -1,0 +1,31 @@
+# Local configuration — real credentials live here, never in the repo.
+/config/config.local.php
+
+# Live personal data. Enquiries belong in MySQL (cfc_submissions) and the CMS
+# inbox at /admin/?p=submissions, not in a repository that gets cloned about.
+/data/submissions/
+
+# Runtime state
+/data/sessions/
+/data/php-error.log
+/data/*.lock
+/data/*.tmp
+/data/**/*.tmp
+
+# Editor uploads. These arrive through the CMS on each server; the repo should
+# not carry one machine's copies.
+/assets/uploads/cms/*
+!/assets/uploads/cms/.gitkeep
+
+# Instagram covers, refetched by cron/sync-instagram.php
+/assets/instagram/*
+!/assets/instagram/.gitkeep
+
+# Build output
+/dist/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~

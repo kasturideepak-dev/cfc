@@ -1,0 +1,63 @@
+<?php
+if (
+    PHP_SAPI !== 'cli'
+    && isset($_SERVER['SCRIPT_FILENAME'])
+    && realpath((string) $_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)
+) {
+    http_response_code(403);
+    exit;
+}
+
+/**
+ * Copy to config.local.php and adjust. Do not commit that file.
+ *
+ * Local MAMP:
+ *   'debug' => true
+ *
+ * cPanel production:
+ *   keep debug false
+ *   set public_origin, canonical_host, force_https, setup_key
+ *   then create the first admin at /admin/ (setup key + username + password)
+ *   or via SSH: php scripts/create-admin.php youruser 'a-long-random-password'
+ */
+return [
+    'debug' => false,
+    'public_origin' => 'https://chennapatnamfiltercoffee.com',
+    'canonical_host' => 'chennapatnamfiltercoffee.com',
+    'base_path' => '',
+    'force_https' => true,
+
+    // Required to create the first admin in the browser. Use 16+ random characters.
+    // php -r "echo bin2hex(random_bytes(16)), PHP_EOL;"
+    'setup_key' => 'replace-with-a-long-random-string',
+
+    'mail_enabled' => true,
+    'mail_to' => 'chennapatnamfiltercoffee@gmail.com',
+    'mail_from' => 'chennapatnamfiltercoffee@gmail.com',
+    'mail_from_name' => 'Chennapatnam Filter Coffee',
+    // Gmail SMTP. Use an App Password, not the normal Gmail login.
+    // Google Account → Security → 2-Step Verification → App passwords.
+    'smtp_host' => 'smtp.gmail.com',
+    'smtp_port' => 587,
+    'smtp_secure' => 'tls',
+    'smtp_user' => 'chennapatnamfiltercoffee@gmail.com',
+    'smtp_pass' => '',
+
+    // Cloudflare Turnstile (or paste keys in CMS → Settings → Captcha)
+    // 'turnstile_site_key' => '',
+    // 'turnstile_secret' => '',
+
+    // cPanel → MySQL Databases. Import sql/cfc.sql in phpMyAdmin, then set these.
+    // CMS passwords and captcha secrets live in MySQL, not JSON.
+    'db_host' => 'localhost',
+    'db_name' => '',
+    'db_user' => '',
+    'db_pass' => '',
+
+    // Optional Instagram Graph overrides. Prefer CMS → Settings → Instagram Feed.
+    // Tokens must never be committed. See docs/instagram.md.
+    // 'instagram_app_id' => '',
+    // 'instagram_app_secret' => '',
+    // 'instagram_access_token' => '',
+    // 'instagram_user_id' => '',
+];

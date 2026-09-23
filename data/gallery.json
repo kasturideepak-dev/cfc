@@ -1,0 +1,518 @@
+[
+    {
+        "title": "Highway Outlets",
+        "level": "h1",
+        "images": [
+            {
+                "thumb": "gallery/highway-outlets/A-1.webp",
+                "full": "2025/06/A-1.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-4.webp",
+                "full": "2025/06/A-4.webp",
+                "w": 2000,
+                "h": 1501
+            },
+            {
+                "thumb": "gallery/highway-outlets/Highway-7.webp",
+                "full": "2025/08/Highway-7.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-6.webp",
+                "full": "2025/06/A-6.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-7.webp",
+                "full": "2025/06/A-7.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-8.webp",
+                "full": "2025/06/A-8.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-9.webp",
+                "full": "2025/06/A-9.webp",
+                "w": 2000,
+                "h": 1524
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-11.webp",
+                "full": "2025/06/A-11.webp",
+                "w": 2000,
+                "h": 1426
+            },
+            {
+                "thumb": "gallery/highway-outlets/A-12-scaled.webp",
+                "full": "2025/06/A-12-scaled.webp",
+                "w": 1920,
+                "h": 2560
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-1.webp",
+                "full": "2025/06/kodad-1.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-2.webp",
+                "full": "2025/06/kodad-2.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-4.webp",
+                "full": "2025/06/kodad-4.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-5.webp",
+                "full": "2025/06/kodad-5.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-6.webp",
+                "full": "2025/06/kodad-6.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-7.webp",
+                "full": "2025/06/kodad-7.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-8.webp",
+                "full": "2025/06/kodad-8.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-9.webp",
+                "full": "2025/06/kodad-9.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-10.webp",
+                "full": "2025/06/kodad-10.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-14.webp",
+                "full": "2025/06/kodad-14.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/kodad-15.webp",
+                "full": "2025/06/kodad-15.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/KODAD-16.webp",
+                "full": "2025/06/KODAD-16.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/Highway-30-pic.webp",
+                "full": "2025/08/Highway-30-pic.webp",
+                "w": 2000,
+                "h": 1125
+            },
+            {
+                "thumb": "gallery/highway-outlets/Highway-31-pic.webp",
+                "full": "2025/08/Highway-31-pic.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-1.webp",
+                "full": "2025/06/M-1.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-3.webp",
+                "full": "2025/06/M-3.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-4.webp",
+                "full": "2025/06/M-4.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-5.webp",
+                "full": "2025/06/M-5.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-7.webp",
+                "full": "2025/06/M-7.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-8.webp",
+                "full": "2025/06/M-8.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-9.webp",
+                "full": "2025/06/M-9.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-10.webp",
+                "full": "2025/06/M-10.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-11.webp",
+                "full": "2025/06/M-11.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/highway-outlets/N-3.webp",
+                "full": "2025/06/N-3.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/M-14.webp",
+                "full": "2025/06/M-14.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/N-1.webp",
+                "full": "2025/06/N-1.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/highway-outlets/N-2.webp",
+                "full": "2025/06/N-2.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/highway-outlets/S-2.webp",
+                "full": "2025/06/S-2.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/highway-outlets/S-9-1.webp",
+                "full": "2025/06/S-9-1.webp",
+                "w": 2000,
+                "h": 1331
+            },
+            {
+                "thumb": "gallery/highway-outlets/IMG_7970.webp",
+                "full": "2025/09/IMG_7970.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/highway-outlets/IMG_8363.webp",
+                "full": "2025/09/IMG_8363.webp",
+                "w": 2000,
+                "h": 918
+            },
+            {
+                "thumb": "gallery/highway-outlets/Highway-last-1-2.webp",
+                "full": "2025/08/Highway-last-1-2.webp",
+                "w": 1137,
+                "h": 576
+            }
+        ]
+    },
+    {
+        "title": "Cafe Outlets",
+        "level": "h2",
+        "images": [
+            {
+                "thumb": "gallery/cafe-outlets/as5yhlqr3jqpjyajlj6c.webp",
+                "full": "2025/06/as5yhlqr3jqpjyajlj6c.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/cafe-outlets/d8subgwquddkz9pugawz.webp",
+                "full": "2025/06/d8subgwquddkz9pugawz.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/cafe-outlets/vql48crshuauknb1ckp8.webp",
+                "full": "2025/06/vql48crshuauknb1ckp8.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/cafe-outlets/pvjzigtpu5txc79yyv5y.webp",
+                "full": "2025/06/pvjzigtpu5txc79yyv5y.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/cafe-outlets/gxh7vlqlbiuticck227j.webp",
+                "full": "2025/06/gxh7vlqlbiuticck227j.webp",
+                "w": 2000,
+                "h": 1333
+            },
+            {
+                "thumb": "gallery/cafe-outlets/8-1.webp",
+                "full": "2025/06/8-1.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/cafe-outlets/11-1.webp",
+                "full": "2025/06/11-1.webp",
+                "w": 1541,
+                "h": 1502
+            },
+            {
+                "thumb": "gallery/cafe-outlets/12-1.webp",
+                "full": "2025/06/12-1.webp",
+                "w": 943,
+                "h": 1280
+            },
+            {
+                "thumb": "gallery/cafe-outlets/nzuvbhpq1qawlnnryfoa.webp",
+                "full": "2025/06/nzuvbhpq1qawlnnryfoa.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/cafe-outlets/v77iyqyg7fv73rkb1hup.webp",
+                "full": "2025/06/v77iyqyg7fv73rkb1hup.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/cafe-outlets/sqbqedv6xsrj58yydaux.webp",
+                "full": "2025/06/sqbqedv6xsrj58yydaux.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/cafe-outlets/mti2rbdrtpulbjzrwyy9.webp",
+                "full": "2025/06/mti2rbdrtpulbjzrwyy9.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/cafe-outlets/hrcsxujye12o7g6eq4g0-scaled.webp",
+                "full": "2025/06/hrcsxujye12o7g6eq4g0-scaled.webp",
+                "w": 2560,
+                "h": 1920
+            },
+            {
+                "thumb": "gallery/cafe-outlets/19.webp",
+                "full": "2025/06/19.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/cafe-outlets/21.webp",
+                "full": "2025/06/21.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/cafe-outlets/22.webp",
+                "full": "2025/06/22.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/cafe-outlets/cafe-style-19.webp",
+                "full": "2025/07/cafe-style-19.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/cafe-outlets/im.webp",
+                "full": "2025/09/im.webp",
+                "w": 1200,
+                "h": 1600
+            },
+            {
+                "thumb": "gallery/cafe-outlets/Imagess.webp",
+                "full": "2025/09/Imagess.webp",
+                "w": 1600,
+                "h": 1200
+            }
+        ]
+    },
+    {
+        "title": "Tiffen Outlets",
+        "level": "h2",
+        "images": [
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_5399.webp",
+                "full": "2025/09/IMG_5399.webp",
+                "w": 1564,
+                "h": 1564
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_5736.webp",
+                "full": "2025/09/IMG_5736.webp",
+                "w": 2000,
+                "h": 1125
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_5738.webp",
+                "full": "2025/09/IMG_5738.webp",
+                "w": 2000,
+                "h": 1125
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8036.webp",
+                "full": "2025/09/IMG_8036.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8521.webp",
+                "full": "2025/09/IMG_8521.webp",
+                "w": 1280,
+                "h": 960
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8504.webp",
+                "full": "2025/09/IMG_8504.webp",
+                "w": 2000,
+                "h": 1575
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8511.webp",
+                "full": "2025/09/IMG_8511.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8514-scaled.webp",
+                "full": "2025/09/IMG_8514-scaled.webp",
+                "w": 1920,
+                "h": 2560
+            },
+            {
+                "thumb": "gallery/tiffen-outlets/IMG_8519.webp",
+                "full": "2025/09/IMG_8519.webp",
+                "w": 2000,
+                "h": 1500
+            }
+        ]
+    },
+    {
+        "title": "Kiosk Outlets",
+        "level": "h2",
+        "images": [
+            {
+                "thumb": "gallery/kiosk-outlets/kiosk-last-1.webp",
+                "full": "2025/07/kiosk-last-1.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/kiosk-last-3.webp",
+                "full": "2025/07/kiosk-last-3.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/elvanupvgscmmyywfd44-scaled.webp",
+                "full": "2025/06/elvanupvgscmmyywfd44-scaled.webp",
+                "w": 1920,
+                "h": 2560
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/szq1gd9jcq7ukqy4bqjl.webp",
+                "full": "2025/06/szq1gd9jcq7ukqy4bqjl.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/sxlfuxlaesgop9rdgjwu.webp",
+                "full": "2025/06/sxlfuxlaesgop9rdgjwu.webp",
+                "w": 1500,
+                "h": 2000
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/oyioi6yo3c2f3pqgd1b0.webp",
+                "full": "2025/06/oyioi6yo3c2f3pqgd1b0.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/7.webp",
+                "full": "2025/06/7.webp",
+                "w": 1500,
+                "h": 2000
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/8.webp",
+                "full": "2025/06/8.webp",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/12.webp",
+                "full": "2025/06/12.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/13.webp",
+                "full": "2025/06/13.webp",
+                "w": 2000,
+                "h": 1500
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/14.webp",
+                "full": "2025/06/14.webp",
+                "w": 960,
+                "h": 1280
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/e03d6941-e2a5-425b-b567-0586eadc09df.webp",
+                "full": "2025/07/e03d6941-e2a5-425b-b567-0586eadc09df.JPG",
+                "w": 1600,
+                "h": 1200
+            },
+            {
+                "thumb": "gallery/kiosk-outlets/1c0fce6b-2efe-4b02-8b57-70115c29a1b8.webp",
+                "full": "2025/07/1c0fce6b-2efe-4b02-8b57-70115c29a1b8.JPG",
+                "w": 1600,
+                "h": 1200
+            }
+        ]
+    }
+]
