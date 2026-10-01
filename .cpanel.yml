@@ -1,0 +1,72 @@
+---
+# cPanel Git Version Control deployment.
+#
+# Runs on the server when you press "Deploy HEAD Commit" in
+# cPanel -> Files -> Git(tm) Version Control. No shell access needed.
+#
+# DEPLOYPATH is the document root. Change it if the site is served from an
+# addon-domain folder rather than public_html.
+#
+# What is deliberately NOT deployed, and why:
+#
+#   data/        Live state on the server: PHP sessions, customer enquiries,
+#                CMS content and lock files. Copying it back would be
+#                destructive. In particular data/media-hub.json is compared
+#                to the database by modification time (includes/cms.php,
+#                cfc_cms_media_hub), so a freshly copied file always looks
+#                newer than the database row and would overwrite the client's
+#                live Media Hub tiles. The directories are recreated
+#                automatically by cfc_prepare_runtime_dirs() on first request.
+#
+#   .htaccess    Not in the repository. The server's own copy carries the
+#                clean-URL and force-HTTPS rules and must survive a deploy.
+#
+#   config/config.local.php
+#                Not in the repository (gitignored) and never copied, so the
+#                production database credentials on the server are untouched.
+#                Only config/config.php, which holds no secrets, is deployed.
+#
+#   docs/, README.md
+#                Developer documentation; no reason to serve it.
+#
+# Nothing here deletes files, so anything already on the server that is not
+# listed below is left alone. That is what protects assets/uploads/cms/ and
+# assets/instagram/, which hold CMS uploads and cached Instagram covers.
+
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/chennuih/public_html
+
+    - /bin/mkdir -p $DEPLOYPATH/admin
+    - /bin/mkdir -p $DEPLOYPATH/assets
+    - /bin/mkdir -p $DEPLOYPATH/config
+    - /bin/mkdir -p $DEPLOYPATH/cron
+    - /bin/mkdir -p $DEPLOYPATH/css
+    - /bin/mkdir -p $DEPLOYPATH/includes
+    - /bin/mkdir -p $DEPLOYPATH/instagram
+    - /bin/mkdir -p $DEPLOYPATH/js
+    - /bin/mkdir -p $DEPLOYPATH/lib
+    - /bin/mkdir -p $DEPLOYPATH/pages
+    - /bin/mkdir -p $DEPLOYPATH/scripts
+    - /bin/mkdir -p $DEPLOYPATH/sql
+
+    # The trailing /. copies the contents of each directory. Without it, cp
+    # nests the directory inside itself on every redeploy.
+    - /bin/cp -R admin/. $DEPLOYPATH/admin/
+    - /bin/cp -R config/. $DEPLOYPATH/config/
+    - /bin/cp -R cron/. $DEPLOYPATH/cron/
+    - /bin/cp -R css/. $DEPLOYPATH/css/
+    - /bin/cp -R includes/. $DEPLOYPATH/includes/
+    - /bin/cp -R instagram/. $DEPLOYPATH/instagram/
+    - /bin/cp -R js/. $DEPLOYPATH/js/
+    - /bin/cp -R lib/. $DEPLOYPATH/lib/
+    - /bin/cp -R pages/. $DEPLOYPATH/pages/
+    - /bin/cp -R scripts/. $DEPLOYPATH/scripts/
+    - /bin/cp -R sql/. $DEPLOYPATH/sql/
+
+    # Assets are large, so prefer rsync and skip the two directories the CMS
+    # writes to on the server. Falls back to cp where rsync is unavailable.
+    - /usr/bin/rsync -a --exclude 'uploads/' --exclude 'instagram/' assets/ $DEPLOYPATH/assets/ || /bin/cp -R assets/. $DEPLOYPATH/assets/
+
+    - /bin/cp index.php $DEPLOYPATH/
+    - /bin/cp robots.txt $DEPLOYPATH/
