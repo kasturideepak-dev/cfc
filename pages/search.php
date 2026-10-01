@@ -23,7 +23,7 @@ if ($q !== '') {
     <?php else: ?>
         <ul>
             <?php foreach ($hits as $post): ?>
-                <li><a href="<?= cfc_e(cfc_url(trim((string) $post['path'], '/') . '/')) ?>"><?= cfc_e((string) ($post['title'] ?? $post['slug'])) ?></a></li>
+                <li><a href="<?= cfc_e(cfc_url(cfc_blog_post_url($post))) ?>"><?= cfc_e((string) ($post['title'] ?? $post['slug'])) ?></a></li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>

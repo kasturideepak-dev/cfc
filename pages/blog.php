@@ -39,7 +39,7 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
 
     <div class="blog-grid">
         <?php foreach ($render as $i => $post):
-            $href = cfc_url(trim((string) ($post['path'] ?? ''), '/') . '/');
+            $href = cfc_url(cfc_blog_post_url($post));
             $img = (string) ($post['image'] ?? '');
             $catSlug = (string) ($post['category'] ?? '');
             $catName = (string) ($post['category_name'] ?? ($catSlug !== '' ? ucwords(str_replace('-', ' ', $catSlug)) : ''));

@@ -534,6 +534,45 @@ function cfc_admin_media_hub(): never
     cfc_admin_layout('Media Hub images', $html, 'media-images');
 }
 
+/**
+ * Permalink picker. Switching rewrites nothing: the stored path stays the
+ * storage key and only the public URL changes, so this is reversible. Old URLs
+ * keep working because every structure stays routable and redirects to the one
+ * in force, which is also why the warning below says "redirected" and not
+ * "broken".
+ */
+function cfc_admin_permalink_form(int $postCount): string
+{
+    $current = cfc_blog_permalink();
+    $sample = cfc_blog_index()[0] ?? null;
+
+    // Preview each structure against a real post where there is one, so the
+    // editor sees their own URL rather than a made-up example.
+    $options = '';
+    foreach (cfc_blog_permalinks() as $key => $meta) {
+        $example = $sample === null ? $meta['example'] : '/' . cfc_blog_post_url_as($sample, $key);
+        $options .= '<option value="' . cfc_e($key) . '"' . ($key === $current ? ' selected' : '') . '>'
+            . cfc_e($meta['label']) . ' — ' . cfc_e($example) . '</option>';
+    }
+
+    $html = '<section class="cms-group"><h2>Post URLs</h2>';
+    $html .= '<form method="post" action="' . cfc_e(cfc_admin_url('p=blog-posts')) . '">';
+    $html .= '<input type="hidden" name="cfc_csrf" value="' . cfc_e(cfc_csrf_token()) . '">';
+    $html .= '<input type="hidden" name="cms_action" value="save_permalink">';
+    $html .= '<div class="cms-field"><label class="cap" for="cfc-permalink">Permalink structure</label>'
+        . '<select id="cfc-permalink" name="permalink">' . $options . '</select></div>';
+    $html .= '<p class="cms-help">Changes the address of all ' . $postCount . ' posts. Nothing is lost: '
+        . 'the old addresses keep working and redirect to the new ones, and you can switch back at any time. '
+        . 'Search engines will take a while to catch up, so pick one and leave it.</p>';
+    if ($current !== 'name') {
+        $html .= '<p class="cms-help"><strong>Post name only</strong> puts posts at the top level, so a post '
+            . 'sharing a slug with a page (for example <code>menu</code>) would be unreachable. The other three are safe.</p>';
+    }
+    $html .= '<div class="cms-actions"><button class="cms-btn" type="submit">Save post URLs</button></div>';
+    $html .= '</form></section>';
+    return $html;
+}
+
 function cfc_admin_blog_list(): never
 {
     $all = cfc_blog_index();
@@ -628,7 +667,8 @@ function cfc_admin_blog_list(): never
       </div>
       <div class="cms-filters">' . $filters . '</div>
       <p class="cms-count">' . count($filtered) . ' of ' . count($all) . ' posts</p>
-      <div class="cms-posts">' . $rows . '</div>';
+      <div class="cms-posts">' . $rows . '</div>'
+      . cfc_admin_permalink_form(count($all));
     cfc_admin_layout('Blog posts', $html, 'blog-posts');
 }
 
@@ -729,7 +769,7 @@ function cfc_admin_blog_editor(?string $path, bool $isNew): never
         <button class="cms-btn" type="submit">Save post</button>
         <a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_admin_url('p=blog-posts')) . '">Back to list</a>';
     if ($post && !empty($post['path'])) {
-        $html .= '<a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_url(trim((string) $post['path'], '/') . '/')) . '" target="_blank" rel="noopener">View</a>';
+        $html .= '<a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_url(cfc_blog_post_url($post))) . '" target="_blank" rel="noopener">View</a>';
         $html .= '<button class="cms-btn cms-btn--danger" type="submit" name="cms_action" value="delete_blog" onclick="return confirm(\'Remove this post from the listing?\')">Delete from listing</button>';
     }
     $html .= '</div></form>';

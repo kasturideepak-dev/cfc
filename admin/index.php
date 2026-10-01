@@ -190,6 +190,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '') {
         }
         cfc_redirect('admin/?p=instagram');
     }
+    if ($action === 'save_permalink') {
+        $ok = cfc_blog_set_permalink((string) ($_POST['permalink'] ?? ''));
+        cfc_admin_flash($ok
+            ? ['ok', 'Post URLs updated. The old addresses now redirect to the new ones.']
+            : ['err', 'Could not save the permalink structure. MySQL is required for this setting.']);
+        cfc_redirect('admin/?p=blog-posts');
+    }
     if ($action === 'save_blog') {
         $existing = isset($_GET['edit']) ? (string) $_GET['edit'] : null;
         $ok = cfc_cms_save_blog_post($_POST, $_FILES, $existing);

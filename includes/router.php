@@ -93,8 +93,18 @@ function cfc_dispatch(): never
         cfc_render_category($m[1], isset($m[2]) && $m[2] !== '' ? (int) $m[2] : 1);
     }
 
+    // Blog posts. All four permalink structures stay routable whichever one is
+    // in force, so links already published keep resolving; cfc_blog_route()
+    // redirects anything that is not the current structure. It returns when no
+    // post matches, letting routing fall through to the 404 below.
     if (preg_match('#^/(20[0-9]{2})/([0-9]{2})/([0-9]{2})/([a-z0-9-]+)/$#', $path, $m)) {
-        cfc_render_blog_post($m[1] . '/' . $m[2] . '/' . $m[3] . '/' . $m[4]);
+        cfc_blog_route($m[4], $m[1] . '/' . $m[2] . '/' . $m[3] . '/' . $m[4]);
+    }
+    if (preg_match('#^/(20[0-9]{2})/([0-9]{2})/([a-z0-9-]+)/$#', $path, $m)) {
+        cfc_blog_route($m[3]);
+    }
+    if (preg_match('#^/blog/([a-z0-9-]+)/$#', $path, $m)) {
+        cfc_blog_route($m[1]);
     }
 
     $aliases = [
@@ -106,6 +116,12 @@ function cfc_dispatch(): never
     ];
     if (isset($aliases[$path])) {
         cfc_redirect(ltrim($aliases[$path], '/'));
+    }
+
+    // Deliberately last: a bare slug must never shadow a real page, an alias or
+    // an asset, so this only sees single-segment paths nothing else claimed.
+    if (preg_match('#^/([a-z0-9-]+)/$#', $path, $m)) {
+        cfc_blog_route($m[1]);
     }
 
     if ($method === 'GET' && preg_match('#\.(?:css|js|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|otf|mp4|webm|pdf|map)$#i', $path)) {

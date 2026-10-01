@@ -17,6 +17,116 @@ function cfc_blog_index(bool $reload = false): array
     return $index;
 }
 
+/**
+ * Permalink structures the blog can serve.
+ *
+ * The stored path stays date-based whatever is selected. It is the storage key:
+ * cfc_db_find_post() looks posts up by it and cfc_blog_file() resolves the
+ * imported HTML from it. Only the public URL changes, so switching structure
+ * rewrites no rows and is reversible.
+ */
+function cfc_blog_permalinks(): array
+{
+    return [
+        'day_name' => ['label' => 'Day and name', 'example' => '/2026/02/24/sample-post/'],
+        'month_name' => ['label' => 'Month and name', 'example' => '/2026/02/sample-post/'],
+        'blog_name' => ['label' => 'Blog and name', 'example' => '/blog/sample-post/'],
+        'name' => ['label' => 'Post name only', 'example' => '/sample-post/'],
+    ];
+}
+
+function cfc_blog_permalink(bool $reload = false): string
+{
+    static $value = null;
+    if ($value !== null && !$reload) {
+        return $value;
+    }
+    $raw = cfc_db_ready() ? (string) (cfc_setting_get('blog_permalink') ?? '') : '';
+    $value = isset(cfc_blog_permalinks()[$raw]) ? $raw : 'day_name';
+    return $value;
+}
+
+function cfc_blog_set_permalink(string $structure): bool
+{
+    if (!isset(cfc_blog_permalinks()[$structure])) {
+        return false;
+    }
+    $ok = cfc_setting_set('blog_permalink', $structure);
+    if ($ok) {
+        cfc_blog_permalink(true);
+    }
+    return $ok;
+}
+
+/** Year, month and day for a post, from its stored path or its date column. */
+function cfc_blog_post_date_parts(array $post): array
+{
+    $path = trim((string) ($post['path'] ?? ''), '/');
+    if (preg_match('#^(\d{4})/(\d{2})/(\d{2})(?:/|$)#', $path, $m)) {
+        return [$m[1], $m[2], $m[3]];
+    }
+    $stamp = strtotime((string) ($post['date'] ?? ''));
+    return $stamp === false ? ['', '', ''] : [date('Y', $stamp), date('m', $stamp), date('d', $stamp)];
+}
+
+/**
+ * The post's public URL under a given structure, relative and slash-ended.
+ * Falls back to the dated form when a post has no usable date, so a URL is
+ * never silently truncated to something that would collide with another post.
+ */
+function cfc_blog_post_url_as(array $post, string $structure): string
+{
+    $path = trim((string) ($post['path'] ?? ''), '/');
+    $slug = trim((string) ($post['slug'] ?? ''), '/');
+    if ($slug === '' && $path !== '') {
+        $slug = basename($path);
+    }
+    if ($slug === '' || !preg_match('/^[a-z0-9-]+$/i', $slug)) {
+        return $path === '' ? '' : $path . '/';
+    }
+    [$y, $m, $d] = cfc_blog_post_date_parts($post);
+    switch ($structure) {
+        case 'month_name':
+            return ($y !== '' && $m !== '') ? $y . '/' . $m . '/' . $slug . '/' : 'blog/' . $slug . '/';
+        case 'blog_name':
+            return 'blog/' . $slug . '/';
+        case 'name':
+            return $slug . '/';
+        default:
+            return ($y !== '' && $m !== '' && $d !== '')
+                ? $y . '/' . $m . '/' . $d . '/' . $slug . '/'
+                : 'blog/' . $slug . '/';
+    }
+}
+
+/** The post's public URL under the structure currently in force. */
+function cfc_blog_post_url(array $post): string
+{
+    return cfc_blog_post_url_as($post, cfc_blog_permalink());
+}
+
+/**
+ * Serve a post matched under any structure. Every structure stays routable so
+ * links already published keep working; anything that is not the structure in
+ * force is redirected to it, which is what keeps one URL per post.
+ *
+ * Returns normally when no post matches, so the router carries on to its own
+ * 404 rather than swallowing unknown paths.
+ */
+function cfc_blog_route(string $slug, ?string $exactPath = null): void
+{
+    $post = cfc_blog_find($exactPath ?? $slug);
+    if ($post === null) {
+        return;
+    }
+    $want = cfc_blog_post_url($post);
+    if ($want !== '' && '/' . ltrim($want, '/') !== cfc_request_path()) {
+        $qs = (string) ($_SERVER['QUERY_STRING'] ?? '');
+        cfc_redirect($want . ($qs !== '' ? '?' . $qs : ''), 301);
+    }
+    cfc_render_blog_post(trim((string) ($post['path'] ?? ''), '/'));
+}
+
 function cfc_blog_path_ok(string $rel): bool
 {
     $rel = str_replace('\\', '/', trim($rel, '/'));
@@ -175,8 +285,9 @@ function cfc_sitemap(): never
         'category/history-of-filter-coffee/',
     ];
     foreach (cfc_blog_index() as $post) {
-        if (!empty($post['path'])) {
-            $urls[] = trim((string) $post['path'], '/') . '/';
+        $url = cfc_blog_post_url($post);
+        if ($url !== '') {
+            $urls[] = $url;
         }
     }
 
