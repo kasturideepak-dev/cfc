@@ -87,7 +87,7 @@ GET https://graph.facebook.com/v25.0/{IG_ID}/media?fields=…
 ## 5. Cron
 
 ```cron
-*/30 * * * * /usr/bin/php /home/USER/public_html/cron/sync-instagram.php >/dev/null 2>&1
+*/30 * * * * /usr/bin/php /home1/chennuih/public_html/cron/sync-instagram.php >/dev/null 2>&1
 ```
 
 Force a run:

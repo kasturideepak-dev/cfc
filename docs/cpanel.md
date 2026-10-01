@@ -29,30 +29,59 @@ Optional: MultiPHP INI Editor → match `.user.ini`:
 
 Do **not** add `php_flag` / `php_value` lines to `.htaccess`. That causes HTTP 500 on many PHP-FPM vhosts.
 
-## 3. Upload
+## 3. Deploy
 
-Put the **contents** of `dist/cfc-cpanel.zip` in the domain document root (`public_html` for the primary domain, or the addon-domain folder). The site must live at `/`, not `/cfc-site/`.
+The site must live at the document root (`public_html` for the primary domain, or the addon-domain folder), not in a subfolder.
 
-Ways to upload:
+### Git Version Control
 
-1. **SFTP / FileZilla** (best for ~250 MB of assets)
-2. **cPanel File Manager** → Upload zip → Extract in `public_html` → delete the zip
-3. **SSH** from your computer:
+This is how the site deploys. cPanel clones the repository and copies it into the document root using `.cpanel.yml` at the repository root. **Shell access is not required** — deployment works even on accounts where SSH is disabled.
+
+First time only:
+
+1. cPanel → **Files → Git™ Version Control** → **Create**
+2. Turn on **Clone a Repository**
+3. Clone URL: `https://github.com/kasturideepak-dev/cfc.git`
+4. Repository Path: `repositories/cfc` — **not** `public_html`. cPanel refuses to clone into a directory that already contains files.
+5. **Create**, then wait. The clone is roughly 490 MB, nearly all of it `assets/`.
+
+Every release after that:
+
+1. Push to `main`
+2. cPanel → Git™ Version Control → **Manage → Pull or Deploy**
+3. **Update from Remote**, then check the HEAD Commit hash matches what you pushed
+4. **Deploy HEAD Commit**
+
+Always update before deploying, or you redeploy the previous commit.
+
+`.cpanel.yml` sets `DEPLOYPATH` to the document root. Check the Repository Path cPanel displays and match its home partition: this account is under `/home1`, not `/home`.
+
+What a deploy deliberately leaves alone:
+
+| Untouched | Why |
+| --- | --- |
+| `data/` | Live sessions, customer enquiries and CMS state. `data/media-hub.json` is compared against the database by modification time, so a freshly copied file always looks newer and would overwrite the live Media Hub tiles. |
+| `.htaccess` | The server's copy carries the clean-URL rules. |
+| `config/config.local.php` | Production credentials. Not in the repository, never written. |
+| `assets/uploads/cms/`, `assets/instagram/` | CMS uploads and cached Instagram covers. No deploy task deletes anything. |
+
+### Manual alternatives
+
+Only if Git Version Control is unavailable.
+
+1. **SFTP / FileZilla** — practical for the ~280 MB of assets.
+2. **cPanel File Manager** → upload a zip → Extract → **then delete the zip**. An archive left in the document root is publicly downloadable by anyone.
+3. **rsync**, if the host has enabled shell access:
 
 ```bash
-rsync -av --exclude-from scripts/cpanel-exclude.txt \
-  ./ user@server:~/public_html/
+rsync -av \
+  --exclude '.git/' --exclude 'data/' --exclude 'docs/' \
+  --exclude 'config/config.local.php' \
+  --exclude 'assets/uploads/' --exclude 'assets/instagram/' \
+  ./ chennuih@chennapatnamfiltercoffee.com:~/public_html/
 ```
 
-Then on the server, delete `config/config.local.php` if a local debug copy was synced.
-
-Build a fresh zip locally:
-
-```bash
-bash scripts/package-cpanel.sh
-```
-
-That zip excludes `.compare/`, local admin users, form tests, and `config.local.php`.
+No `--delete`: the excluded directories hold live server state that must survive.
 
 ## 4. Production config
 
@@ -186,7 +215,7 @@ Shop “Shop now” still goes to `https://www.andaalhomefoods.com/`.
 After connecting the professional account in CMS → Settings → Instagram Feed:
 
 ```cron
-*/30 * * * * /usr/bin/php /home/USER/public_html/cron/sync-instagram.php >/dev/null 2>&1
+*/30 * * * * /usr/bin/php /home1/chennuih/public_html/cron/sync-instagram.php >/dev/null 2>&1
 ```
 
 Full Meta app + token steps: [instagram.md](instagram.md). Public pages never call Instagram; cron writes `cfc_instagram_posts`.
