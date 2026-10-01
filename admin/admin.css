@@ -538,6 +538,16 @@ table.cms-table {
 }
 .cms-gitem label { font-size: 12px; display: flex; gap: 6px; align-items: center; }
 
+.cms-permalink { padding-top: 14px; }
+.cms-permalink > summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--cfc-brown);
+  margin-bottom: 4px;
+}
+.cms-permalink > summary strong { color: var(--cfc-ink); }
+.cms-permalink[open] > summary { margin-bottom: 14px; }
+
 /* Gallery photos editor */
 .cms-ggrid { min-height: 56px; }
 .cms-ggrid.is-drop {

@@ -555,7 +555,9 @@ function cfc_admin_permalink_form(int $postCount): string
             . cfc_e($meta['label']) . ' — ' . cfc_e($example) . '</option>';
     }
 
-    $html = '<section class="cms-group"><h2>Post URLs</h2>';
+    $label = cfc_blog_permalinks()[$current]['label'] ?? $current;
+    $html = '<details class="cms-group cms-permalink"><summary><strong>Post URLs</strong> — currently '
+        . cfc_e($label) . '</summary>';
     $html .= '<form method="post" action="' . cfc_e(cfc_admin_url('p=blog-posts')) . '">';
     $html .= '<input type="hidden" name="cfc_csrf" value="' . cfc_e(cfc_csrf_token()) . '">';
     $html .= '<input type="hidden" name="cms_action" value="save_permalink">';
@@ -569,7 +571,7 @@ function cfc_admin_permalink_form(int $postCount): string
             . 'sharing a slug with a page (for example <code>menu</code>) would be unreachable. The other three are safe.</p>';
     }
     $html .= '<div class="cms-actions"><button class="cms-btn" type="submit">Save post URLs</button></div>';
-    $html .= '</form></section>';
+    $html .= '</form></details>';
     return $html;
 }
 
@@ -664,11 +666,11 @@ function cfc_admin_blog_list(): never
           <button class="cms-btn cms-btn--ghost" type="submit">Search</button>
         </form>
         <a class="cms-btn" href="' . cfc_e(cfc_admin_url('p=blog-posts&new=1')) . '">New post</a>
-      </div>
-      <div class="cms-filters">' . $filters . '</div>
+      </div>'
+      . cfc_admin_permalink_form(count($all))
+      . '<div class="cms-filters">' . $filters . '</div>
       <p class="cms-count">' . count($filtered) . ' of ' . count($all) . ' posts</p>
-      <div class="cms-posts">' . $rows . '</div>'
-      . cfc_admin_permalink_form(count($all));
+      <div class="cms-posts">' . $rows . '</div>';
     cfc_admin_layout('Blog posts', $html, 'blog-posts');
 }
 
