@@ -4,8 +4,10 @@
 # Runs on the server when you press "Deploy HEAD Commit" in
 # cPanel -> Files -> Git(tm) Version Control. No shell access needed.
 #
-# DEPLOYPATH is the document root. Change it if the site is served from an
-# addon-domain folder rather than public_html.
+# DEPLOYPATH is the document root. This account's home is /home1, not /home,
+# as cPanel reports under Git Version Control -> Repository Path. Change it if
+# the host ever moves the account to a different home partition, or if the site
+# is served from an addon-domain folder rather than public_html.
 #
 # What is deliberately NOT deployed, and why:
 #
@@ -35,7 +37,7 @@
 
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/chennuih/public_html
+    - export DEPLOYPATH=/home1/chennuih/public_html
 
     - /bin/mkdir -p $DEPLOYPATH/admin
     - /bin/mkdir -p $DEPLOYPATH/assets
