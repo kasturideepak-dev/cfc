@@ -15,7 +15,9 @@ if (isset($_GET['logout'])) {
 if (cfc_users_reload() === []) {
     $error = '';
     if (!cfc_db_ready()) {
-        $error = 'MySQL is required for CMS logins. Create a database, import sql/cfc.sql, and set db_name, db_user, and db_pass in config.local.php.';
+        $error = 'MySQL is required for CMS logins. Set db_name, db_user and db_pass in '
+            . CFC_ROOT . '/config/config.local.php'
+            . ' — not in config.php, which is replaced on every deploy.';
         cfc_admin_setup_page($error);
     }
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['cfc_setup'])) {

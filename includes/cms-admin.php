@@ -960,7 +960,8 @@ function cfc_admin_setup_page(string $error = ''): never
     $needKey = !cfc_debug();
     $keyReady = cfc_setup_key_configured();
     if (!cfc_db_ready()) {
-        $hint = '<p class="sub">MySQL is required. Create a database, import sql/cfc.sql, and set db_name / db_user / db_pass in config.local.php.</p>';
+        $hint = '<p class="sub">MySQL is required. Import sql/cfc.sql, then set db_name / db_user / db_pass in <code>'
+            . cfc_e(CFC_ROOT . '/config/config.local.php') . '</code>. Not in config.php: that file is replaced on every deploy.</p>';
         $needKey = true;
         $keyReady = false;
     } else {

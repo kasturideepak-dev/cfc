@@ -11,8 +11,14 @@ if (
 }
 
 /**
- * Runtime configuration. Override any value in config.local.php
- * (gitignored). Do not put live passwords or API keys in this file.
+ * Runtime configuration.
+ *
+ * DO NOT PUT CREDENTIALS HERE. This file is tracked in git and is replaced on
+ * every deploy, so a database password written here works until the next
+ * deploy and then silently stops, taking the CMS sign-in down with it.
+ *
+ * Real values belong in config/config.local.php, which is gitignored and which
+ * no deploy ever writes. Anything it returns overrides the defaults below.
  */
 
 $detectedBase = '';
