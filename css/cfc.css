@@ -947,22 +947,9 @@ a { color: inherit; }
   display: block;
 }
 
-.contact-page__strip {
-  margin: 24px 0 0;
-  padding: 0 80px 0 0;
-  line-height: 0;
-}
-
-.contact-page__strip img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
 @media (max-width: 1024px) {
   .contact-page { padding: 40px; }
   .contact-page__split { grid-template-columns: 1fr; }
-  .contact-page__strip { padding: 0; }
 }
 
 .form-grid { display: grid; gap: 14px; max-width: 640px; }

@@ -40,7 +40,4 @@
             <img src="<?= cfc_e(cfc_cms_src('contact.art_image')) ?>" alt="" width="700" height="494" data-cfc-anim="fadeInRight">
         </div>
     </div>
-    <div class="contact-page__strip">
-        <img src="<?= cfc_e(cfc_cms_src('contact.strip_image')) ?>" alt="Chennapatnam filter coffee - Best coffee franchisee" width="1312" height="250" data-cfc-anim="fadeInLeft">
-    </div>
 </section>

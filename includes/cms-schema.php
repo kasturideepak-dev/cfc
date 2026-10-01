@@ -537,7 +537,6 @@ return [
                     ['key' => 'title', 'type' => 'text', 'label' => 'Heading', 'default' => 'Get in touch with us!'],
                     ['key' => 'submit_label', 'type' => 'text', 'label' => 'Submit button', 'default' => 'Get in Touch with Us'],
                     ['key' => 'art_image', 'type' => 'image', 'label' => 'Andaal illustration', 'default' => '2024/04/gundmma-katha-copy.webp'],
-                    ['key' => 'strip_image', 'type' => 'image', 'label' => 'Cup strip', 'default' => '2024/03/tb-1.png'],
                 ],
             ],
         ],
