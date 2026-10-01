@@ -32,8 +32,15 @@ return [
     'base_path' => $detectedBase,
     'timezone' => 'Asia/Kolkata',
     'debug' => false,
-    'force_https' => false,
-    'canonical_host' => '',
+
+    // One host, one scheme. Without these the same page answers on four URLs
+    // (http/https x apex/www), and the canonical tag just echoes whichever host
+    // was asked for, so nothing tells a crawler which one counts. Both are
+    // skipped for localhost, raw IPs and debug mode, so local work is unaffected.
+    // Redirecting www to the apex also makes the canonical tag correct by
+    // itself, because only the apex is ever served.
+    'force_https' => true,
+    'canonical_host' => 'chennapatnamfiltercoffee.com',
 
     'admin_user' => '',
     'admin_password_hash' => '',
