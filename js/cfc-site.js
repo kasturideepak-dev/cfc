@@ -435,3 +435,42 @@
     });
   });
 })();
+
+/* Media Hub "Load More". Every tile is already in the page, so this reveals
+   them in batches rather than fetching anything. The button starts hidden and
+   is only shown once there is something to reveal: with JavaScript off the
+   grid simply shows everything, which is a better outcome than a button that
+   silently sends people to Instagram. */
+(function () {
+  var grid = document.querySelector("[data-media-grid]");
+  var more = document.querySelector("[data-media-more]");
+  if (!grid || !more) return;
+
+  var step = parseInt(grid.getAttribute("data-media-step"), 10);
+  if (!step || step < 1) step = 12;
+
+  var items = Array.prototype.slice.call(grid.children);
+  if (items.length <= step) return;
+
+  var shown = step;
+  function apply() {
+    items.forEach(function (el, i) {
+      el.hidden = i >= shown;
+    });
+    var left = items.length - shown;
+    more.hidden = left <= 0;
+    more.setAttribute("aria-label", left > 0 ? "Show " + Math.min(step, left) + " more posts" : "");
+  }
+
+  more.addEventListener("click", function () {
+    var first = items[shown];
+    shown += step;
+    apply();
+    if (first) {
+      first.setAttribute("tabindex", "-1");
+      first.focus({ preventScroll: true });
+    }
+  });
+
+  apply();
+})();
