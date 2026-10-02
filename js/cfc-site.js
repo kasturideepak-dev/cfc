@@ -83,6 +83,14 @@
         img.src = src;
         img.removeAttribute("data-src");
         img.removeAttribute("data-cfc-lazy-img");
+        // Gallery tiles that letterbox fill the gap with the same photo,
+        // blurred. Setting it here rather than in the markup means the
+        // backdrop costs no extra request and does not pull the image in
+        // before the tile is anywhere near the viewport.
+        var tile = img.closest ? img.closest(".gallery-item--fill") : null;
+        if (tile && !tile.style.getPropertyValue("--bg")) {
+          tile.style.setProperty("--bg", 'url("' + src + '")');
+        }
       }
       if (!("IntersectionObserver" in window)) {
         nodes.forEach(load);

@@ -28,6 +28,16 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
                     $src = cfc_media($thumb);
                     $eager = $shown < 8;
                     $shown++;
+                    // Only tiles whose photo cannot fill the 4:3 cell get the
+                    // blurred backdrop, so two thirds of the grid pays nothing
+                    // for it. Above-the-fold tiles carry the URL inline; the
+                    // rest get it from the lazy loader, which would otherwise
+                    // be defeated by a background image fetching immediately.
+                    $ratio = $h > 0 ? $w / $h : 4 / 3;
+                    $bars = $ratio < 4 / 3 ? 1 - ($ratio / (4 / 3)) : 1 - ((4 / 3) / $ratio);
+                    $fill = $bars > 0.03;
+                    $itemCls = 'gallery-item' . ($fill ? ' gallery-item--fill' : '');
+                    $itemStyle = ($fill && $eager) ? ' style="--bg:url(&quot;' . cfc_e($src) . '&quot;)"' : '';
                     // Clamping width and height separately distorted the declared
                     // ratio, so the browser reserved the wrong shape before the
                     // image arrived. Scale both together instead.
@@ -38,7 +48,7 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
                         $w = 720;
                     }
                     ?>
-                    <a class="gallery-item" href="<?= cfc_e(cfc_media($full)) ?>" data-gallery-item>
+                    <a class="<?= cfc_e($itemCls) ?>" href="<?= cfc_e(cfc_media($full)) ?>"<?= $itemStyle ?> data-gallery-item>
                         <?php if ($eager): ?>
                             <img src="<?= cfc_e($src) ?>" alt="<?= cfc_e($title) ?>" width="<?= $w ?>" height="<?= $h ?>" decoding="async"<?= $shown === 1 ? ' fetchpriority="high"' : '' ?>>
                         <?php else: ?>

@@ -1355,14 +1355,31 @@ a { color: inherit; }
 }
 
 .gallery-item {
+  position: relative;
   display: block;
   margin: 0;
   line-height: 0;
   overflow: hidden;
-  /* A tile just dark enough to read as a frame behind portraits and
-     panoramas, which no longer fill the 4:3 cell edge to edge. */
   background: rgba(0, 0, 0, 0.18);
   aspect-ratio: 4 / 3;
+}
+
+/* Portraits and panoramas cannot fill a 4:3 cell without being cropped, so the
+   space around them is filled with the same photo, blurred and dimmed. The
+   tile stays a fixed size, the photo is still shown whole, and there is no
+   dead space. Only tiles the template marks get this, so the two thirds of
+   the grid that already fit pay nothing for it. */
+.gallery-item--fill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px) brightness(0.55) saturate(1.1);
+  /* Blur samples past the edges, so scale up to keep the bleed out of sight. */
+  transform: scale(1.25);
+  z-index: 0;
 }
 
 .gallery-item img {
@@ -1375,6 +1392,8 @@ a { color: inherit; }
   object-fit: contain;
   object-position: center;
   display: block;
+  position: relative;
+  z-index: 1;
 }
 
 .gallery-item:hover img { opacity: 0.88; }
