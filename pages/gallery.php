@@ -28,8 +28,15 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
                     $src = cfc_media($thumb);
                     $eager = $shown < 8;
                     $shown++;
-                    $w = min(720, max(1, (int) ($img['w'] ?? 720)));
-                    $h = min(540, max(1, (int) ($img['h'] ?? 540)));
+                    // Clamping width and height separately distorted the declared
+                    // ratio, so the browser reserved the wrong shape before the
+                    // image arrived. Scale both together instead.
+                    $w = max(1, (int) ($img['w'] ?? 720));
+                    $h = max(1, (int) ($img['h'] ?? 540));
+                    if ($w > 720) {
+                        $h = max(1, (int) round($h * (720 / $w)));
+                        $w = 720;
+                    }
                     ?>
                     <a class="gallery-item" href="<?= cfc_e(cfc_media($full)) ?>" data-gallery-item>
                         <?php if ($eager): ?>

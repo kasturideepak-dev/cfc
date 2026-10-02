@@ -1359,14 +1359,20 @@ a { color: inherit; }
   margin: 0;
   line-height: 0;
   overflow: hidden;
-  background: #1a0f0a;
+  /* A tile just dark enough to read as a frame behind portraits and
+     panoramas, which no longer fill the 4:3 cell edge to edge. */
+  background: rgba(0, 0, 0, 0.18);
   aspect-ratio: 4 / 3;
 }
 
 .gallery-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain, not cover: the grid keeps one rhythm while every photo is shown
+     whole. Two thirds of these images are already 4:3 and look unchanged; it
+     is the tall portraits and the wide panoramas that were losing up to half
+     their area to the crop. */
+  object-fit: contain;
   object-position: center;
   display: block;
 }
