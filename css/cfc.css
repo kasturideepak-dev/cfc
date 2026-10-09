@@ -2055,7 +2055,13 @@ a { color: inherit; }
   .home-hero {
     aspect-ratio: auto;
     min-height: 0;
-    padding: 300px 16px 40px;
+    /* The artwork is sized 100% auto, so its height is a fixed fraction of the
+       viewport width: Group-29-1.webp is 1440x1328 and its lowest drawn pixel,
+       the bottom of the davara, sits at 85.3% of that width. A fixed 300px top
+       padding only cleared that at around 375px wide and let the heading land
+       on top of the cup on any larger phone. Percentage padding resolves
+       against the width too, so this tracks the art at every size. */
+    padding: 88% 16px 40px;
     background-position: top left, top right, top center;
     background-size: 0 0, 0 0, 100% auto;
     align-items: flex-start;
@@ -2197,10 +2203,27 @@ a { color: inherit; }
      silently overlap each other and a tap near the edge lands on the wrong
      one, which is worse than a small target. So the two tight lists below
      are genuinely spaced out instead. */
-  .cfc-social { gap: 22px; }
+  /* Fixed boxes rather than padding pulled back by a negative margin: the
+     margin made each painted box overhang its flex slot by 10px a side, and
+     at 320px the last icon's box pushed past the screen edge and gave the
+     whole page a horizontal scroll. 6 x 44 + 5 x 4 = 284, which fits. */
+  /* The corporate email is 304px of unbreakable text, wider than a 320px
+     screen once the footer's 30px padding is taken off. The single grid
+     column sizes to its widest child's min-content, so the whole footer, and
+     with it the page, grew past the viewport and scrolled sideways. Letting
+     the address wrap fixes the cause; minmax(0,1fr) stops any future long
+     string doing the same. */
+  .cfc-footer__inner {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-wrap: anywhere;
+  }
+
+  .cfc-social { gap: 4px; }
   .cfc-social a {
-    padding: 10px;
-    margin: -10px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    margin: 0;
     align-items: center;
     justify-content: center;
   }
