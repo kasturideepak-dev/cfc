@@ -27,6 +27,15 @@
     if (toggle) toggle.addEventListener("click", openNav);
     if (closeBtn) closeBtn.addEventListener("click", closeNav);
     if (backdrop) backdrop.addEventListener("click", closeNav);
+    // Escape is the expected way out of an overlay, and the drawer locks page
+    // scroll while open, so without this a keyboard user who opened it has no
+    // way out except hunting for the close button.
+    document.addEventListener("keydown", function (e) {
+      if ((e.key === "Escape" || e.key === "Esc") && nav && nav.classList.contains("is-open")) {
+        closeNav();
+        if (toggle) toggle.focus();
+      }
+    });
 
     var motionOk = !window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var anims = document.querySelectorAll("[data-cfc-anim]");

@@ -2223,6 +2223,16 @@ a { color: inherit; }
     height: 44px;
   }
 
+  /* The drawer is brown on every page, but the home header styles its links
+     brown to sit on the light hero art, and that rule is more specific than
+     the drawer's own. The result was brown text on a brown panel: the menu
+     opened to what looked like an empty box. Inner pages were unaffected,
+     which is why it only showed on the home page. */
+  .cfc-theme--home .cfc-nav a,
+  .cfc-nav a {
+    color: #fff;
+  }
+
   /* These were a pixel or two short of the 44px mark. */
   .home-cta__btns a { padding: 12px 18px; }
   .home-phone { padding: 3px 0; }
