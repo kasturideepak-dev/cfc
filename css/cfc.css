@@ -2241,6 +2241,17 @@ a { color: inherit; }
     margin: -14px 0;
   }
 
+  /* The drawer lives inside .cfc-header, which is positioned with z-index 30
+     and so opens a stacking context. The drawer's own z-index 200 is scoped
+     inside that, so the whole header painted at 30 while the backdrop, a
+     sibling of the header, sat at 150 on top of it. Taps meant for a menu
+     link landed on the backdrop, whose handler closes the menu: the drawer
+     opened, then every link press just shut it again. Lifting the header
+     above the backdrop puts the drawer where it belongs; the floating
+     WhatsApp and back-to-top buttons stay above everything at 998 and 999. */
+  .cfc-theme--home .cfc-header,
+  .cfc-header { z-index: 160; }
+
   .cfc-nav-close {
     width: 44px;
     height: 44px;
