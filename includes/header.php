@@ -10,7 +10,7 @@ $nav = cfc_nav_items();
 <header class="cfc-header">
     <div class="cfc-header__inner">
         <a class="cfc-logo" href="<?= cfc_e(cfc_url()) ?>">
-            <img src="<?= cfc_e($headerLogo) ?>" alt="Chennapatnam Filter Coffee — authentic South Indian filter coffee franchise"<?= ($theme ?? '') === 'home' ? ' data-cfc-anim="fadeInDown"' : '' ?>>
+            <img src="<?= cfc_e($headerLogo) ?>" alt="Chennapatnam Filter Coffee — authentic South Indian filter coffee franchise" width="916" height="394"<?= ($theme ?? '') === 'home' ? ' data-cfc-anim="fadeInDown"' : '' ?>>
         </a>
         <button class="cfc-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-nav-toggle>
             <span></span><span></span><span></span>

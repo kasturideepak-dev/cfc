@@ -28,16 +28,6 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
                     $src = cfc_media($thumb);
                     $eager = $shown < 8;
                     $shown++;
-                    // Only tiles whose photo cannot fill the 4:3 cell get the
-                    // blurred backdrop, so two thirds of the grid pays nothing
-                    // for it. Above-the-fold tiles carry the URL inline; the
-                    // rest get it from the lazy loader, which would otherwise
-                    // be defeated by a background image fetching immediately.
-                    $ratio = $h > 0 ? $w / $h : 4 / 3;
-                    $bars = $ratio < 4 / 3 ? 1 - ($ratio / (4 / 3)) : 1 - ((4 / 3) / $ratio);
-                    $fill = $bars > 0.03;
-                    $itemCls = 'gallery-item' . ($fill ? ' gallery-item--fill' : '');
-                    $itemStyle = ($fill && $eager) ? ' style="--bg:url(&quot;' . cfc_e($src) . '&quot;)"' : '';
                     // Clamping width and height separately distorted the declared
                     // ratio, so the browser reserved the wrong shape before the
                     // image arrived. Scale both together instead.
@@ -47,6 +37,19 @@ $placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAA
                         $h = max(1, (int) round($h * (720 / $w)));
                         $w = 720;
                     }
+                    // Only tiles whose photo cannot fill the 4:3 cell get the
+                    // blurred backdrop, so two thirds of the grid pays nothing
+                    // for it. Above-the-fold tiles carry the URL inline; the
+                    // rest get it from the lazy loader, which would otherwise
+                    // be defeated by a background image fetching immediately.
+                    // This has to follow the sizing above: reading $w and $h
+                    // first picked up the previous iteration's values, so every
+                    // tile was judged on the shape of the one before it.
+                    $ratio = $h > 0 ? $w / $h : 4 / 3;
+                    $bars = $ratio < 4 / 3 ? 1 - ($ratio / (4 / 3)) : 1 - ((4 / 3) / $ratio);
+                    $fill = $bars > 0.03;
+                    $itemCls = 'gallery-item' . ($fill ? ' gallery-item--fill' : '');
+                    $itemStyle = ($fill && $eager) ? ' style="--bg:url(&quot;' . cfc_e($src) . '&quot;)"' : '';
                     ?>
                     <a class="<?= cfc_e($itemCls) ?>" href="<?= cfc_e(cfc_media($full)) ?>"<?= $itemStyle ?> data-gallery-item>
                         <?php if ($eager): ?>

@@ -15,7 +15,7 @@ $wa = cfc_cms_digits('site.whatsapp');
     <div class="cfc-footer__inner">
         <div class="cfc-footer__brand">
             <a class="cfc-footer__logo" href="<?= cfc_e(cfc_url()) ?>">
-                <img src="<?= cfc_e(cfc_cms_src('site.logo_footer')) ?>" alt="Chennapatnam Filter Coffee">
+                <img src="<?= cfc_e(cfc_cms_src('site.logo_footer')) ?>" alt="Chennapatnam Filter Coffee" width="916" height="394" loading="lazy" decoding="async">
             </a>
             <p><?= cfc_cms_e('site.footer_tagline') ?></p>
             <div class="cfc-social">
