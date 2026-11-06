@@ -81,7 +81,8 @@ return [
     'turnstile_site_key' => '',
     'turnstile_secret' => '',
 
-    'mail_to' => 'chennapatnamfiltercoffee@gmail.com',
+    // Comma separated; everyone listed gets a copy of each enquiry.
+    'mail_to' => 'chennapatnamfiltercoffee@gmail.com, cfccre1@gmail.com',
     'mail_from' => '',
     'mail_from_name' => 'Chennapatnam Filter Coffee',
     'mail_enabled' => false,

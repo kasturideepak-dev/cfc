@@ -854,6 +854,39 @@ function cfc_admin_captcha(): never
     cfc_admin_layout('Captcha', $html, 'captcha');
 }
 
+/**
+ * Whether enquiry emails are actually going out. A failed send is deliberately
+ * not allowed to fail the submission, so without this the first sign that
+ * notifications stopped would be someone noticing they had missed an enquiry.
+ */
+function cfc_admin_mail_status(): string
+{
+    $to = cfc_mail_recipients();
+    if (empty(cfc_config('mail_enabled'))) {
+        return '<div class="cms-flash cms-flash--warn">Enquiry emails are off. Submissions are still saved and listed below. '
+            . 'To turn them on, set <code>mail_enabled</code> to true and <code>smtp_user</code> / <code>smtp_pass</code> in '
+            . cfc_e(CFC_ROOT . '/config/config.local.php') . ' — the password must be a Gmail App Password, not the account password.</div>';
+    }
+    if ($to === []) {
+        return '<div class="cms-flash cms-flash--err">Enquiry emails are on but <code>mail_to</code> has no valid address, so nothing is being sent.</div>';
+    }
+    $list = implode(', ', $to);
+    if (!cfc_db_ready()) {
+        return '<div class="cms-flash">Enquiry emails go to ' . cfc_e($list) . '.</div>';
+    }
+    $at = (string) (cfc_setting_get('form_mail_last_at') ?? '');
+    $ok = (string) (cfc_setting_get('form_mail_last_ok') ?? '');
+    $err = (string) (cfc_setting_get('form_mail_last_error') ?? '');
+    if ($at === '') {
+        return '<div class="cms-flash">Enquiry emails go to ' . cfc_e($list) . '. Nothing sent yet.</div>';
+    }
+    if ($ok === '1') {
+        return '<div class="cms-flash cms-flash--ok">Enquiry emails go to ' . cfc_e($list) . '. Last one sent ' . cfc_e($at) . '.</div>';
+    }
+    return '<div class="cms-flash cms-flash--err">The last enquiry email failed on ' . cfc_e($at) . ': '
+        . cfc_e($err !== '' ? $err : 'reason not recorded') . '. The enquiry itself was saved and is listed below.</div>';
+}
+
 function cfc_admin_submissions(): never
 {
     $rows = '';
@@ -870,7 +903,7 @@ function cfc_admin_submissions(): never
     $note = cfc_db_ready()
         ? '<p class="cms-help">Stored in MySQL table <code>cfc_submissions</code> (JSON backup in data/submissions).</p>'
         : '<p class="cms-help">Stored as JSON in data/submissions. Set db_name / db_user / db_pass in config.local.php to use MySQL.</p>';
-    $html = $note . '<table class="cms-table"><thead><tr><th>When</th><th>Name</th><th>Email</th><th>Mobile</th><th>City</th><th>Source</th><th>Message</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+    $html = cfc_admin_mail_status() . $note . '<table class="cms-table"><thead><tr><th>When</th><th>Name</th><th>Email</th><th>Mobile</th><th>City</th><th>Source</th><th>Message</th></tr></thead><tbody>' . $rows . '</tbody></table>';
     cfc_admin_layout('Form submissions', $html, 'submissions');
 }
 

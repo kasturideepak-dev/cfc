@@ -283,9 +283,55 @@ function cfc_smtp_ready(): bool
     return $user !== '' && $pass !== '' && filter_var($user, FILTER_VALIDATE_EMAIL) !== false;
 }
 
-function cfc_send_mail(string $to, string $subject, string $body, string $replyTo = '', string $html = ''): bool
+/**
+ * Who gets notified about a form submission. mail_to accepts a list so the
+ * office and whoever else needs to see enquiries can both be on it without a
+ * code change; separate with commas. Invalid entries are dropped rather than
+ * failing the whole send, and the list is capped so a mistyped setting cannot
+ * turn one enquiry into a mail blast.
+ */
+function cfc_mail_recipients(): array
 {
-    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+    $raw = (string) cfc_config('mail_to', '');
+    $out = [];
+    // Split on newlines as well as commas, so a pasted list still works and a
+    // header-injection attempt becomes separate entries that then fail validation.
+    foreach (preg_split('/[,;\r\n]+/', $raw) ?: [] as $one) {
+        $one = trim($one);
+        if ($one === '' || !filter_var($one, FILTER_VALIDATE_EMAIL)) {
+            continue;
+        }
+        $key = strtolower($one);
+        if (!isset($out[$key])) {
+            $out[$key] = $one;
+        }
+        if (count($out) >= 5) {
+            break;
+        }
+    }
+    return array_values($out);
+}
+
+/** Last mail failure, so the CMS can say why notifications stopped arriving. */
+function cfc_mail_error(?string $msg = null): string
+{
+    if ($msg !== null) {
+        $GLOBALS['cfc_mail_error'] = $msg;
+    }
+    return (string) ($GLOBALS['cfc_mail_error'] ?? '');
+}
+
+function cfc_send_mail(string|array $to, string $subject, string $body, string $replyTo = '', string $html = ''): bool
+{
+    $recipients = [];
+    foreach (is_array($to) ? $to : [$to] as $one) {
+        $one = trim((string) $one);
+        if ($one !== '' && filter_var($one, FILTER_VALIDATE_EMAIL)) {
+            $recipients[] = $one;
+        }
+    }
+    if ($recipients === []) {
+        cfc_mail_error('No valid recipient address configured in mail_to.');
         return false;
     }
     $subject = str_replace(["\r", "\n", "\0"], '', $subject);
@@ -294,16 +340,19 @@ function cfc_send_mail(string $to, string $subject, string $body, string $replyT
     $replyTo = str_replace(["\r", "\n", "\0"], '', $replyTo);
 
     if (!cfc_phpmailer_load()) {
+        cfc_mail_error('PHPMailer is missing under lib/PHPMailer.');
         error_log('CFC mail: PHPMailer is missing under lib/PHPMailer.');
         return false;
     }
     if (!cfc_smtp_ready()) {
+        cfc_mail_error('SMTP is not configured: set smtp_user and smtp_pass in config.local.php.');
         error_log('CFC mail: set smtp_user and smtp_pass (Gmail App Password) in config.local.php.');
         return false;
     }
 
     $host = trim((string) cfc_config('smtp_host', 'smtp.gmail.com')) ?: 'smtp.gmail.com';
     if (!preg_match('/^[A-Za-z0-9.-]+$/', $host)) {
+        cfc_mail_error('smtp_host is not a valid hostname.');
         error_log('CFC mail: invalid smtp_host.');
         return false;
     }
@@ -332,7 +381,9 @@ function cfc_send_mail(string $to, string $subject, string $body, string $replyT
         }
         $mail->Timeout = 15;
         $mail->setFrom($from, $fromName !== '' ? $fromName : $from);
-        $mail->addAddress($to);
+        foreach ($recipients as $one) {
+            $mail->addAddress($one);
+        }
         if ($replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
             $mail->addReplyTo($replyTo);
         }
@@ -348,6 +399,7 @@ function cfc_send_mail(string $to, string $subject, string $body, string $replyT
         $mail->send();
         return true;
     } catch (Throwable $e) {
+        cfc_mail_error('SMTP refused the message: ' . $e->getMessage());
         error_log('CFC SMTP failed: ' . $e->getMessage());
         return false;
     }

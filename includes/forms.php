@@ -141,6 +141,22 @@ function cfc_form_is_ajax(): bool
     return str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
 }
 
+/**
+ * Remember how the last notification went. A failed send must never fail the
+ * submission, which is already saved by this point, so the only way anyone
+ * finds out that enquiry emails stopped arriving is if the CMS says so.
+ */
+function cfc_form_mail_status(bool $ok, int $recipients, string $error = ''): void
+{
+    if (!cfc_db_ready()) {
+        return;
+    }
+    cfc_setting_set('form_mail_last_at', date('Y-m-d H:i:s'));
+    cfc_setting_set('form_mail_last_ok', $ok ? '1' : '0');
+    cfc_setting_set('form_mail_recipients', (string) $recipients);
+    cfc_setting_set('form_mail_last_error', $ok ? '' : cfc_clip($error, 300));
+}
+
 function cfc_form_handle(): never
 {
     $isAjax = cfc_form_is_ajax();
@@ -276,9 +292,13 @@ function cfc_form_handle(): never
             . '<tr><td>Form</td><td>' . cfc_e($formId) . '</td></tr>'
             . '<tr><td>Page</td><td>' . cfc_e($source) . '</td></tr>'
             . '</table><p>' . nl2br(cfc_e($message), false) . '</p>';
-        $to = (string) cfc_config('mail_to');
-        if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            cfc_send_mail($to, $subject, $mailBody, $email, $html);
+        // One message to everyone on the list rather than one send each.
+        $to = cfc_mail_recipients();
+        if ($to !== []) {
+            $sent = cfc_send_mail($to, $subject, $mailBody, $email, $html);
+            cfc_form_mail_status($sent, count($to), $sent ? '' : cfc_mail_error());
+        } else {
+            cfc_form_mail_status(false, 0, 'No valid address in mail_to.');
         }
     }
 
