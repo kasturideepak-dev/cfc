@@ -182,7 +182,11 @@ function cfc_admin_dashboard(): never
     $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=blog-posts')) . '"><strong>Blog posts</strong><span>Titles, excerpts, images, body</span></a>';
     $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=redirects')) . '"><strong>Redirects</strong><span>' . count(cfc_redirects()) . ' URL rules</span></a>';
     $n = cfc_submissions_count();
-    $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=submissions')) . '"><strong>Form submissions</strong><span>' . (int) $n . ' received</span></a>';
+    $month = cfc_submissions_count_since(date('Y-m-01'));
+    $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=submissions')) . '"><strong>Form submissions</strong><span>'
+        . (int) $n . ' received'
+        . ($n > 0 ? ' &middot; ' . (int) $month . ' in ' . date('F') : '')
+        . '</span></a>';
     if (cfc_admin_is_admin()) {
         $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=users')) . '"><strong>Users</strong><span>' . count(cfc_users()) . ' accounts</span></a>';
         $cards .= '<a class="cms-card" href="' . cfc_e(cfc_admin_url('p=captcha')) . '"><strong>Captcha</strong><span>' . (cfc_turnstile_enabled() ? 'Cloudflare Turnstile on' : 'Not configured') . '</span></a>';
@@ -854,6 +858,279 @@ function cfc_admin_captcha(): never
     cfc_admin_layout('Captcha', $html, 'captcha');
 }
 
+/** The columns an export carries, in order. Message last: it is the long one. */
+function cfc_submissions_columns(): array
+{
+    return [
+        'created_at' => 'When',
+        'form_id' => 'Form',
+        'name' => 'Name',
+        'email' => 'Email',
+        'mobile' => 'Mobile',
+        'city' => 'City',
+        'source' => 'Page',
+        'message' => 'Message',
+    ];
+}
+
+/** The filters currently in force, read from the query string. */
+function cfc_submissions_filters(): array
+{
+    $norm = static function (string $v): string {
+        $v = trim($v);
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : '';
+    };
+    return [
+        'form' => preg_replace('/[^a-z0-9_-]/i', '', (string) ($_GET['form'] ?? '')) ?: '',
+        'from' => $norm((string) ($_GET['from'] ?? '')),
+        'to' => $norm((string) ($_GET['to'] ?? '')),
+        'q' => trim((string) ($_GET['q'] ?? '')),
+    ];
+}
+
+/**
+ * One filter for the table and the exports alike, so what you download is
+ * always what you were looking at.
+ */
+function cfc_submissions_apply_filters(array $rows, array $f): array
+{
+    $needle = $f['q'] !== '' ? cfc_lower($f['q']) : '';
+    $out = [];
+    foreach ($rows as $row) {
+        if ($f['form'] !== '' && (string) ($row['form_id'] ?? '') !== $f['form']) {
+            continue;
+        }
+        if ($f['from'] !== '' || $f['to'] !== '') {
+            $stamp = strtotime((string) ($row['created_at'] ?? ''));
+            $day = $stamp === false ? '' : date('Y-m-d', $stamp);
+            if ($day === '') {
+                continue;
+            }
+            if ($f['from'] !== '' && $day < $f['from']) {
+                continue;
+            }
+            if ($f['to'] !== '' && $day > $f['to']) {
+                continue;
+            }
+        }
+        if ($needle !== '') {
+            $hay = cfc_lower(implode(' ', [
+                $row['name'] ?? '', $row['email'] ?? '', $row['mobile'] ?? '',
+                $row['city'] ?? '', $row['message'] ?? '', $row['source'] ?? '',
+            ]));
+            if (!str_contains($hay, $needle)) {
+                continue;
+            }
+        }
+        $out[] = $row;
+    }
+    return $out;
+}
+
+function cfc_submissions_export_rows(array $rows): array
+{
+    $cols = cfc_submissions_columns();
+    $out = [array_values($cols)];
+    foreach ($rows as $row) {
+        $line = [];
+        foreach (array_keys($cols) as $key) {
+            $v = (string) ($row[$key] ?? '');
+            if ($key === 'created_at') {
+                $stamp = strtotime($v);
+                $v = $stamp === false ? $v : date('Y-m-d H:i', $stamp);
+            }
+            $line[] = str_replace(["\r\n", "\r"], "\n", $v);
+        }
+        $out[] = $line;
+    }
+    return $out;
+}
+
+function cfc_submissions_filename(string $ext, int $count): string
+{
+    return 'cfc-enquiries-' . date('Y-m-d') . '-' . $count . '.' . $ext;
+}
+
+/** Escape for XML, and drop the control characters XML 1.0 forbids outright. */
+function cfc_xlsx_text(string $v): string
+{
+    $v = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', '', $v) ?? '';
+    if (mb_strlen($v, 'UTF-8') > 32000) {
+        $v = mb_substr($v, 0, 32000, 'UTF-8') . '...';
+    }
+    return htmlspecialchars($v, ENT_QUOTES | ENT_XML1, 'UTF-8');
+}
+
+/** A1, B1 ... Z1, AA1. */
+function cfc_xlsx_ref(int $col, int $row): string
+{
+    $name = '';
+    for ($n = $col; $n > 0; $n = intdiv($n - 1, 26)) {
+        $name = chr(65 + (($n - 1) % 26)) . $name;
+    }
+    return $name . $row;
+}
+
+/**
+ * A genuine .xlsx, not a CSV wearing the extension. Every cell is written as an
+ * inline string, which is what keeps a ten-digit mobile number readable: as a
+ * number Excel would round it or show it as 9.87E+09, and a leading +91 would
+ * be parsed as a formula.
+ */
+function cfc_xlsx_build(array $grid): string
+{
+    $sheet = '';
+    $rowNo = 0;
+    foreach ($grid as $cells) {
+        $rowNo++;
+        $style = $rowNo === 1 ? ' s="1"' : ' s="2"';
+        $sheet .= '<row r="' . $rowNo . '">';
+        $colNo = 0;
+        foreach ($cells as $cell) {
+            $colNo++;
+            $sheet .= '<c r="' . cfc_xlsx_ref($colNo, $rowNo) . '" t="inlineStr"' . $style
+                . '><is><t xml:space="preserve">' . cfc_xlsx_text((string) $cell) . '</t></is></c>';
+        }
+        $sheet .= '</row>';
+    }
+    $cols = count($grid[0] ?? []);
+    $last = cfc_xlsx_ref(max(1, $cols), max(1, $rowNo));
+    $widths = '';
+    foreach ([16, 11, 20, 28, 15, 16, 20, 70] as $i => $w) {
+        if ($i >= $cols) {
+            break;
+        }
+        $widths .= '<col min="' . ($i + 1) . '" max="' . ($i + 1) . '" width="' . $w . '" customWidth="1"/>';
+    }
+
+    $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    $ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+    $rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+    $parts = [
+        '[Content_Types].xml' => $xml
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . '</Types>',
+        '_rels/.rels' => $xml
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="' . $rel . '/officeDocument" Target="xl/workbook.xml"/>'
+            . '</Relationships>',
+        'xl/workbook.xml' => $xml
+            . '<workbook xmlns="' . $ns . '" xmlns:r="' . $rel . '">'
+            . '<sheets><sheet name="Enquiries" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        'xl/_rels/workbook.xml.rels' => $xml
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="' . $rel . '/worksheet" Target="worksheets/sheet1.xml"/>'
+            . '<Relationship Id="rId2" Type="' . $rel . '/styles" Target="styles.xml"/>'
+            . '</Relationships>',
+        'xl/styles.xml' => $xml
+            . '<styleSheet xmlns="' . $ns . '">'
+            . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
+            . '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            . '<fills count="2"><fill><patternFill patternType="none"/></fill>'
+            . '<fill><patternFill patternType="gray125"/></fill></fills>'
+            . '<borders count="1"><border/></borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="3">'
+            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            . '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
+            . '<alignment vertical="top" wrapText="1"/></xf>'
+            . '</cellXfs>'
+            . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+            . '</styleSheet>',
+        'xl/worksheets/sheet1.xml' => $xml
+            . '<worksheet xmlns="' . $ns . '" xmlns:r="' . $rel . '">'
+            . '<dimension ref="A1:' . $last . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0">'
+            . '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
+            . '</sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="15"/>'
+            . ($widths !== '' ? '<cols>' . $widths . '</cols>' : '')
+            . '<sheetData>' . $sheet . '</sheetData>'
+            . '<autoFilter ref="A1:' . $last . '"/>'
+            . '</worksheet>',
+    ];
+
+    $tmp = tempnam(sys_get_temp_dir(), 'cfcxlsx');
+    if ($tmp === false) {
+        return '';
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
+        @unlink($tmp);
+        return '';
+    }
+    foreach ($parts as $name => $body) {
+        $zip->addFromString($name, $body);
+    }
+    $zip->close();
+    $blob = (string) file_get_contents($tmp);
+    @unlink($tmp);
+    return $blob;
+}
+
+/**
+ * Spreadsheet formula injection guard. These enquiries come from a public form,
+ * so a message beginning =, +, - or @ is a live formula the moment the client
+ * double-clicks the CSV. The apostrophe is visible in the cell; that is the
+ * cost of not shipping the client a file that can run commands. The .xlsx
+ * download needs no such guard, which is why it is the one offered first.
+ */
+function cfc_csv_safe(string $v): string
+{
+    return $v !== '' && strpbrk($v[0], "=+-@\t\r") !== false ? "'" . $v : $v;
+}
+
+function cfc_submissions_send_csv(array $grid, string $filename): never
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store, private');
+    // Excel reads a CSV as the system codepage unless the BOM tells it UTF-8,
+    // which is what keeps names and city spellings from arriving as mojibake.
+    echo "\xEF\xBB\xBF";
+    foreach ($grid as $i => $row) {
+        $cells = [];
+        foreach ($i === 0 ? $row : array_map('cfc_csv_safe', $row) as $v) {
+            // Quoting every field unconditionally is valid CSV and sidesteps
+            // the delimiter, newline and backslash-escape edge cases that
+            // fputcsv has historically got wrong.
+            $cells[] = '"' . str_replace('"', '""', (string) $v) . '"';
+        }
+        echo implode(',', $cells), "\r\n";
+    }
+    exit;
+}
+
+function cfc_submissions_send_xlsx(array $grid, string $filename): never
+{
+    $blob = cfc_xlsx_build($grid);
+    if ($blob === '') {
+        cfc_admin_flash(['err', 'Could not build the Excel file. Download the CSV instead.']);
+        cfc_redirect('admin/?p=submissions');
+    }
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($blob));
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store, private');
+    echo $blob;
+    exit;
+}
+
 /**
  * Whether enquiry emails are actually going out. A failed send is deliberately
  * not allowed to fail the submission, so without this the first sign that
@@ -889,21 +1166,118 @@ function cfc_admin_mail_status(): string
 
 function cfc_admin_submissions(): never
 {
-    $rows = '';
-    foreach (cfc_submissions_list() as $row) {
-        $rows .= '<tr>';
-        foreach (['created_at', 'name', 'email', 'mobile', 'city', 'source', 'message'] as $key) {
-            $rows .= '<td>' . cfc_e((string) ($row[$key] ?? '')) . '</td>';
+    $all = cfc_submissions_list();
+    $filters = cfc_submissions_filters();
+    $rows = cfc_submissions_apply_filters($all, $filters);
+    $active = $filters['form'] !== '' || $filters['from'] !== '' || $filters['to'] !== '' || $filters['q'] !== '';
+
+    // The export sits inside the page handler on purpose: it is behind exactly
+    // the same sign-in as the table, and it can only ever hand back the rows
+    // the filters already selected.
+    $export = (string) ($_GET['export'] ?? '');
+    if ($export === 'csv' || $export === 'xlsx') {
+        $grid = cfc_submissions_export_rows($rows);
+        $name = cfc_submissions_filename($export, count($rows));
+        if ($export === 'xlsx') {
+            cfc_submissions_send_xlsx($grid, $name);
         }
-        $rows .= '</tr>';
+        cfc_submissions_send_csv($grid, $name);
     }
-    if ($rows === '') {
-        $rows = '<tr><td colspan="7">No submissions yet.</td></tr>';
+
+    // Counts come from the unfiltered set, so the tallies stay a fixed point of
+    // reference while you narrow things down.
+    $byForm = [];
+    foreach ($all as $row) {
+        $id = (string) ($row['form_id'] ?? '');
+        if ($id === '') {
+            $id = 'contact';
+        }
+        $byForm[$id] = ($byForm[$id] ?? 0) + 1;
     }
+    ksort($byForm);
+
+    $label = static fn (string $id): string => ucwords(str_replace(['-', '_'], ' ', $id));
+
+    $options = '<option value="">All forms (' . count($all) . ')</option>';
+    foreach ($byForm as $id => $n) {
+        $options .= '<option value="' . cfc_e($id) . '"' . ($filters['form'] === $id ? ' selected' : '') . '>'
+            . cfc_e($label($id)) . ' (' . $n . ')</option>';
+    }
+
+    $filterForm = '<form class="cms-filters" method="get" action="' . cfc_e(cfc_admin_url()) . '">'
+        . '<input type="hidden" name="p" value="submissions">'
+        . '<label>Form<select name="form">' . $options . '</select></label>'
+        . '<label>From<input type="date" name="from" value="' . cfc_e($filters['from']) . '"></label>'
+        . '<label>To<input type="date" name="to" value="' . cfc_e($filters['to']) . '"></label>'
+        . '<label>Search<input type="search" name="q" value="' . cfc_e($filters['q'])
+        . '" placeholder="Name, email, mobile, city, message"></label>'
+        . '<span class="cms-filters__go"><button type="submit" class="cms-btn">Filter</button>'
+        . ($active ? ' <a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_admin_url('p=submissions')) . '">Clear</a>' : '')
+        . '</span></form>';
+
+    $tally = [];
+    foreach ($byForm as $id => $n) {
+        $tally[] = cfc_e($label($id)) . ' ' . $n;
+    }
+    $count = '<p class="cms-count"><strong>' . count($rows) . '</strong> '
+        . (count($rows) === 1 ? 'enquiry' : 'enquiries')
+        . ($active ? ' matching, out of ' . count($all) . ' in total' : ' in total')
+        . ($tally !== [] ? ' <span class="cms-count__split">' . implode(' &middot; ', $tally) . '</span>' : '')
+        . '</p>';
+
+    $query = array_filter([
+        'p' => 'submissions',
+        'form' => $filters['form'],
+        'from' => $filters['from'],
+        'to' => $filters['to'],
+        'q' => $filters['q'],
+    ], static fn ($v): bool => $v !== '');
+    $base = http_build_query($query);
+    $downloads = $rows === []
+        ? '<p class="cms-help">Nothing to export with these filters.</p>'
+        : '<p class="cms-downloads">'
+            . '<a class="cms-btn" href="' . cfc_e(cfc_admin_url($base . '&export=xlsx')) . '">Download Excel (.xlsx)</a> '
+            . '<a class="cms-btn cms-btn--ghost" href="' . cfc_e(cfc_admin_url($base . '&export=csv')) . '">Download CSV</a>'
+            . '<span class="cms-help">' . count($rows) . ' '
+            . (count($rows) === 1 ? 'row' : 'rows')
+            . ($active ? ', matching the filters above' : '')
+            . '. Excel keeps mobile numbers exactly as typed; CSV is for Google Sheets and other tools.</span></p>';
+
+    // The table is capped so the page stays usable as the enquiries pile up.
+    // The downloads above are never capped.
+    $cap = 500;
+    $shown = count($rows) > $cap ? array_slice($rows, 0, $cap) : $rows;
+    $body = '';
+    foreach ($shown as $row) {
+        $stamp = strtotime((string) ($row['created_at'] ?? ''));
+        $when = $stamp === false
+            ? '<span>' . cfc_e((string) ($row['created_at'] ?? '')) . '</span>'
+            : '<span>' . cfc_e(date('j M Y', $stamp)) . '</span><time>' . cfc_e(date('g:i a', $stamp)) . '</time>';
+        $body .= '<tr><td class="cms-when">' . $when . '</td>'
+            . '<td>' . cfc_e($label((string) ($row['form_id'] ?? ''))) . '</td>';
+        foreach (['name', 'email', 'mobile', 'city', 'source', 'message'] as $key) {
+            $cell = cfc_e((string) ($row[$key] ?? ''));
+            $body .= $key === 'message' ? '<td class="cms-msg">' . $cell . '</td>' : '<td>' . $cell . '</td>';
+        }
+        $body .= '</tr>';
+    }
+    if ($body === '') {
+        $body = '<tr><td colspan="8">' . ($all === [] ? 'No submissions yet.' : 'No enquiries match these filters.') . '</td></tr>';
+    }
+    $more = count($rows) > $cap
+        ? '<p class="cms-help">Showing the ' . $cap . ' most recent of ' . count($rows)
+            . '. Narrow the dates, or download the file for the full set.</p>'
+        : '';
+
     $note = cfc_db_ready()
         ? '<p class="cms-help">Stored in MySQL table <code>cfc_submissions</code> (JSON backup in data/submissions).</p>'
         : '<p class="cms-help">Stored as JSON in data/submissions. Set db_name / db_user / db_pass in config.local.php to use MySQL.</p>';
-    $html = cfc_admin_mail_status() . $note . '<table class="cms-table"><thead><tr><th>When</th><th>Name</th><th>Email</th><th>Mobile</th><th>City</th><th>Source</th><th>Message</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+
+    $html = cfc_admin_mail_status() . $filterForm . $count . $downloads . $note . $more
+        . '<div class="cms-scroll"><table class="cms-table cms-table--subs">'
+        . '<thead><tr><th>When</th><th>Form</th><th>Name</th><th>Email</th>'
+        . '<th>Mobile</th><th>City</th><th>Page</th><th>Message</th></tr></thead><tbody>'
+        . $body . '</tbody></table></div>';
     cfc_admin_layout('Form submissions', $html, 'submissions');
 }
 

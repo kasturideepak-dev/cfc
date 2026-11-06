@@ -591,6 +591,28 @@ function cfc_submissions_list(): array
     return $out;
 }
 
+/** How many enquiries have landed since midnight on $day (YYYY-MM-DD). */
+function cfc_submissions_count_since(string $day): int
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+        return 0;
+    }
+    $pdo = cfc_pdo();
+    if ($pdo) {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM cfc_submissions WHERE created_at >= ?');
+        $st->execute([$day . ' 00:00:00']);
+        return (int) $st->fetchColumn();
+    }
+    $n = 0;
+    foreach (cfc_submissions_list() as $row) {
+        $stamp = strtotime((string) ($row['created_at'] ?? ''));
+        if ($stamp !== false && date('Y-m-d', $stamp) >= $day) {
+            $n++;
+        }
+    }
+    return $n;
+}
+
 function cfc_submissions_count(): int
 {
     $pdo = cfc_pdo();

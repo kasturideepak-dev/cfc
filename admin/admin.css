@@ -735,3 +735,103 @@ table.cms-table {
   .cms-cat__tools { margin-left: 0; width: 100%; }
   .cms-bulk { bottom: 8px; padding: 8px 10px; gap: 6px; }
 }
+
+/* Form submissions: filter bar, counts and downloads. */
+.cms-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px;
+  margin: 0 0 16px;
+  background: var(--cfc-white);
+  border: 1px solid var(--cfc-line);
+  border-radius: 10px;
+}
+.cms-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cfc-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cms-filters select,
+.cms-filters input {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  min-height: 42px;
+  color: var(--cfc-ink);
+  background: var(--cfc-white);
+  border: 1px solid var(--cfc-line);
+  border-radius: 6px;
+}
+.cms-filters input[type="search"] { min-width: 240px; }
+.cms-filters select:focus,
+.cms-filters input:focus { outline: 2px solid var(--cfc-gold); outline-offset: 1px; }
+.cms-filters__go { display: flex; gap: 8px; }
+.cms-filters .cms-btn { margin-top: 0; }
+
+.cms-count {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: var(--cfc-ink);
+}
+.cms-count strong { font-size: 20px; color: var(--cfc-brown); }
+.cms-count__split {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 13px;
+  color: var(--cfc-muted);
+}
+
+.cms-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.cms-downloads .cms-btn { margin-top: 0; }
+.cms-downloads .cms-help { margin: 0; flex: 1 1 260px; }
+
+@media (max-width: 800px) {
+  .cms-filters { gap: 10px; }
+  .cms-filters label,
+  .cms-filters__go { width: 100%; }
+  .cms-filters input[type="search"] { min-width: 0; }
+  .cms-filters__go .cms-btn { flex: 1; }
+  .cms-downloads .cms-btn { flex: 1 1 auto; }
+}
+
+/* The submissions table carries eight columns, so it scrolls sideways rather
+   than squeezing the message text into a ribbon. */
+.cms-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cms-table--subs { min-width: 940px; }
+.cms-table--subs td { vertical-align: top; }
+.cms-table--subs td:nth-child(3) { white-space: normal; min-width: 150px; }
+.cms-table--subs .cms-when { white-space: nowrap; }
+.cms-table--subs .cms-when span { display: block; }
+.cms-table--subs .cms-when time {
+  display: block;
+  font-size: 12px;
+  color: var(--cfc-muted);
+}
+.cms-table--subs td:nth-child(5) { white-space: nowrap; }
+.cms-table--subs .cms-msg { min-width: 260px; max-width: 420px; }
+
+/* The mail-status banner prints an absolute config path, which has no spaces
+   to break on and pushed the whole admin sideways on a phone. */
+.cms-flash { overflow-wrap: anywhere; }
+.cms-flash code { overflow-wrap: anywhere; }
+
+@media (max-width: 800px) {
+  /* The header row could not fit Menu, the page title and three links side by
+     side, so the whole admin scrolled sideways on a phone. Let it wrap. */
+  .cms-top { flex-wrap: wrap; gap: 8px 14px; }
+  .cms-top h1 { flex: 1 1 100%; order: 3; font-size: 21px; }
+  .cms-top nav { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; gap: 14px; justify-content: flex-end; }
+}
