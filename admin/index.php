@@ -161,6 +161,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $action !== '') {
         cfc_admin_flash($ok ? ['ok', 'Reset to original copy.'] : ['err', 'Could not reset.']);
         cfc_redirect('admin/?p=' . rawurlencode($page));
     }
+    if ($action === 'send_test_mail') {
+        if (!cfc_admin_is_admin()) {
+            cfc_admin_flash(['err', 'Only admins can send test emails.']);
+            cfc_redirect('admin/?p=submissions');
+        }
+        [$ok, $msg] = cfc_admin_send_test_mail($_POST);
+        cfc_admin_flash([$ok ? 'ok' : 'err', $msg]);
+        cfc_redirect('admin/?p=submissions');
+    }
     if ($action === 'save_gallery') {
         $ok = cfc_cms_save_gallery($_POST, $_FILES);
         cfc_admin_flash(cfc_admin_save_flash($ok, 'Gallery saved.', 'Could not save gallery.'));

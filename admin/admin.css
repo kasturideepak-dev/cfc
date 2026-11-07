@@ -835,3 +835,45 @@ table.cms-table {
   .cms-top h1 { flex: 1 1 100%; order: 3; font-size: 21px; }
   .cms-top nav { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; gap: 14px; justify-content: flex-end; }
 }
+
+/* Test-email control, under the mail status banner. */
+.cms-mailtest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+  background: var(--cfc-white);
+  border: 1px solid var(--cfc-line);
+  border-radius: 10px;
+}
+.cms-mailtest label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cfc-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cms-mailtest input {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 10px;
+  min-height: 42px;
+  min-width: 240px;
+  color: var(--cfc-ink);
+  border: 1px solid var(--cfc-line);
+  border-radius: 6px;
+}
+.cms-mailtest input:focus { outline: 2px solid var(--cfc-gold); outline-offset: 1px; }
+.cms-mailtest .cms-btn { margin-top: 0; }
+.cms-mailtest .cms-help { flex: 1 1 260px; margin: 0; }
+
+@media (max-width: 800px) {
+  .cms-mailtest label { width: 100%; }
+  .cms-mailtest input { min-width: 0; width: 100%; }
+  .cms-mailtest .cms-btn { width: 100%; }
+}

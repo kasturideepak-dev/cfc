@@ -1132,6 +1132,84 @@ function cfc_submissions_send_xlsx(array $grid, string $filename): never
 }
 
 /**
+ * Sends one fixed message to a typed address. This exists because the only
+ * other thing that sends mail is a real enquiry, so the alternative way to
+ * check an SMTP password was to post the live form -- which mails the client
+ * and leaves a fake enquiry in the list that nothing in the CMS can delete.
+ *
+ * Deliberately bypasses mail_enabled: that switch governs enquiry
+ * notifications, and you want to be able to prove the credentials work before
+ * turning it on. The caller says so in the result when it is still off.
+ */
+function cfc_admin_send_test_mail(array $post): array
+{
+    $to = trim(cfc_cms_post_str($post['test_to'] ?? ''));
+    if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return [false, 'Enter a valid email address to send the test to.'];
+    }
+    // Behind an admin login already, but a compromised account should not turn
+    // this into a way to post mail from the client's domain all afternoon.
+    if (!cfc_rate_limit_hit('testmail:' . cfc_client_ip(), 5, 900)) {
+        return [false, 'Too many test emails. Wait a few minutes and try again.'];
+    }
+    if (!cfc_smtp_ready()) {
+        return [false, 'SMTP is not configured: set smtp_user and smtp_pass (a Gmail App Password) in config/config.local.php.'];
+    }
+
+    $who = (string) ($_SESSION['cfc_admin_user'] ?? 'someone');
+    $host = (string) cfc_config('smtp_host', 'smtp.gmail.com');
+    $when = date('j M Y, g:i a');
+    $body = "This is a test message from the Chennapatnam Filter Coffee CMS.\n\n"
+        . "If you are reading it, the SMTP settings on the site are working and\n"
+        . "enquiry emails can be delivered.\n\n"
+        . "Sent: {$when}\n"
+        . "Sent by: {$who}\n"
+        . "Server: {$host}\n";
+
+    cfc_mail_error('');
+    $ok = cfc_send_mail($to, 'CFC CMS test email', $body);
+    if (!$ok) {
+        $err = cfc_mail_error();
+        return [false, 'Test email failed: ' . ($err !== '' ? $err : 'reason not reported by the mail server') . '.'];
+    }
+
+    $msg = 'Test email sent to ' . $to . ' from ' . cfc_mail_from() . ' via ' . $host
+        . '. Check the inbox, and the spam folder if it is not there.';
+    if (empty(cfc_config('mail_enabled'))) {
+        $msg .= ' Note that mail_enabled is still false, so real enquiries are NOT being emailed yet.';
+    }
+    return [true, $msg];
+}
+
+/** The test-email control, shown under the status banner. Admins only. */
+function cfc_admin_mail_test_form(): string
+{
+    if (!cfc_admin_is_admin()) {
+        return '';
+    }
+    $to = cfc_mail_recipients();
+    $hint = $to === []
+        ? 'Send a test to any address to check the SMTP settings.'
+        : 'Enquiries go to ' . cfc_e(implode(', ', $to)) . '. Send a test anywhere to check the SMTP settings without posting the live form.';
+    return '<form class="cms-mailtest" method="post" action="' . cfc_e(cfc_admin_url('p=submissions')) . '">'
+        . '<input type="hidden" name="cfc_csrf" value="' . cfc_e(cfc_csrf_token()) . '">'
+        . '<input type="hidden" name="cms_action" value="send_test_mail">'
+        . '<label>Send a test email to<input type="email" name="test_to" required placeholder="you@example.com"'
+        . ' value="' . cfc_e(cfc_admin_email_guess()) . '"></label>'
+        . '<button type="submit" class="cms-btn cms-btn--ghost">Send test</button>'
+        . '<span class="cms-help">' . $hint . '</span>'
+        . '</form>';
+}
+
+/** Prefill the test box with the signed-in admin's own address, if we hold one. */
+function cfc_admin_email_guess(): string
+{
+    $me = cfc_admin_me();
+    $email = is_array($me) ? trim((string) ($me['email'] ?? '')) : '';
+    return $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '';
+}
+
+/**
  * Whether enquiry emails are actually going out. A failed send is deliberately
  * not allowed to fail the submission, so without this the first sign that
  * notifications stopped would be someone noticing they had missed an enquiry.
@@ -1273,7 +1351,7 @@ function cfc_admin_submissions(): never
         ? '<p class="cms-help">Stored in MySQL table <code>cfc_submissions</code> (JSON backup in data/submissions).</p>'
         : '<p class="cms-help">Stored as JSON in data/submissions. Set db_name / db_user / db_pass in config.local.php to use MySQL.</p>';
 
-    $html = cfc_admin_mail_status() . $filterForm . $count . $downloads . $note . $more
+    $html = cfc_admin_mail_status() . cfc_admin_mail_test_form() . $filterForm . $count . $downloads . $note . $more
         . '<div class="cms-scroll"><table class="cms-table cms-table--subs">'
         . '<thead><tr><th>When</th><th>Form</th><th>Name</th><th>Email</th>'
         . '<th>Mobile</th><th>City</th><th>Page</th><th>Message</th></tr></thead><tbody>'
