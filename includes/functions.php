@@ -290,6 +290,23 @@ function cfc_smtp_ready(): bool
  * failing the whole send, and the list is capped so a mistyped setting cannot
  * turn one enquiry into a mail blast.
  */
+/** Turns a php.ini shorthand size ("128M", "1G") into bytes; -1 or 0 means unlimited. */
+function cfc_bytes_from_ini(string $value): int
+{
+    $value = trim($value);
+    if ($value === '' || $value === '-1') {
+        return 0;
+    }
+    $unit = strtolower(substr($value, -1));
+    $n = (int) $value;
+    return match ($unit) {
+        'g' => $n * 1024 * 1024 * 1024,
+        'm' => $n * 1024 * 1024,
+        'k' => $n * 1024,
+        default => $n,
+    };
+}
+
 function cfc_mail_recipients(): array
 {
     $raw = (string) cfc_config('mail_to', '');

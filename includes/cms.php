@@ -772,6 +772,63 @@ function cfc_cms_optimize_to_webp(string $abs, int $maxW = 1920): ?string
     return 'uploads/cms/' . basename($webpAbs);
 }
 
+/**
+ * The eight EXIF orientations expressed as GD operations.
+ *
+ * imagerotate turns COUNTER-clockwise, so an "orientation 6 = rotate 90 CW"
+ * tag becomes a 270 degree call here. Mirroring is applied before rotation,
+ * which is the order the EXIF values are defined in.
+ *
+ * imageflip works in place and returns a bool; imagerotate returns a NEW
+ * image. So the return value may or may not be the same resource that was
+ * passed in, and the caller has to compare before freeing anything.
+ */
+function cfc_cms_orient_image(GdImage $img, int $orientation): ?GdImage
+{
+    if ($orientation < 2 || $orientation > 8) {
+        return null;
+    }
+    if ($orientation === 3) {
+        // Half a turn is two in-place flips, so it costs nothing. Going
+        // through imagerotate would allocate a second copy of the image.
+        imageflip($img, IMG_FLIP_BOTH);
+        return $img;
+    }
+    if (in_array($orientation, [2, 5, 7], true)) {
+        imageflip($img, IMG_FLIP_HORIZONTAL);
+    } elseif ($orientation === 4) {
+        imageflip($img, IMG_FLIP_VERTICAL);
+    }
+    $angle = match ($orientation) {
+        5, 8 => 90,
+        6, 7 => 270,
+        default => 0,
+    };
+    if ($angle === 0) {
+        return $img;
+    }
+    $rotated = imagerotate($img, $angle, 0);
+    // On failure keep the (possibly mirrored) original rather than losing it.
+    return $rotated instanceof GdImage ? $rotated : $img;
+}
+
+/** A JPEG's EXIF orientation, or 1 when absent, unreadable or out of range. */
+function cfc_cms_exif_orientation(string $srcAbs): int
+{
+    if (!function_exists('exif_read_data')) {
+        return 1;
+    }
+    $exif = @exif_read_data($srcAbs);
+    $orientation = is_array($exif) ? (int) ($exif['Orientation'] ?? 1) : 1;
+    return ($orientation >= 1 && $orientation <= 8) ? $orientation : 1;
+}
+
+/** True when an orientation turns the image through a quarter turn. */
+function cfc_cms_orientation_swaps_axes(int $orientation): bool
+{
+    return in_array($orientation, [5, 6, 7, 8], true);
+}
+
 function cfc_cms_make_thumb(string $srcAbs, string $destAbs, int $maxW = 720): bool
 {
     if (!function_exists('imagecreatetruecolor')) {
@@ -798,21 +855,45 @@ function cfc_cms_make_thumb(string $srcAbs, string $destAbs, int $maxW = 720): b
         imagedestroy($src);
         return false;
     }
-    if ($w > $maxW) {
-        $nw = $maxW;
-        $nh = max(1, (int) round($h * ($maxW / $w)));
+    // GD ignores EXIF orientation, so a photo shot in portrait on a phone
+    // arrives on its side unless the rotation is baked in. Only JPEG carries
+    // the tag in practice, and staying off PNG/WebP avoids imagerotate's
+    // transparency handling.
+    $orientation = $type === IMAGETYPE_JPEG ? cfc_cms_exif_orientation($srcAbs) : 1;
+    $swap = cfc_cms_orientation_swaps_axes($orientation);
+
+    // Size the thumbnail against the dimensions the photo will have once it is
+    // the right way up, so maxW caps the width the visitor actually sees.
+    $cw = $swap ? $h : $w;
+    $ch = $swap ? $w : $h;
+    if ($cw > $maxW) {
+        $fw = $maxW;
+        $fh = max(1, (int) round($ch * ($maxW / $cw)));
     } else {
-        $nw = $w;
-        $nh = $h;
+        $fw = $cw;
+        $fh = $ch;
     }
+    // Resample on the pre-rotation axes, then turn the finished thumbnail.
+    // Rotating first would mean imagerotate allocating a second copy of a
+    // 12 megapixel original, which is around 40 MB of extra peak memory on a
+    // host that may only allow 128 MB in total.
+    $nw = $swap ? $fh : $fw;
+    $nh = $swap ? $fw : $fh;
     $dst = imagecreatetruecolor($nw, $nh);
     if ($type === IMAGETYPE_PNG || $type === IMAGETYPE_WEBP) {
         imagealphablending($dst, false);
         imagesavealpha($dst, true);
     }
     imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-    $ok = function_exists('imagewebp') ? imagewebp($dst, $destAbs, 82) : imagejpeg($dst, $destAbs, 85);
     imagedestroy($src);
+    if ($orientation > 1) {
+        $oriented = cfc_cms_orient_image($dst, $orientation);
+        if ($oriented instanceof GdImage && $oriented !== $dst) {
+            imagedestroy($dst);
+            $dst = $oriented;
+        }
+    }
+    $ok = function_exists('imagewebp') ? imagewebp($dst, $destAbs, 82) : imagejpeg($dst, $destAbs, 85);
     imagedestroy($dst);
     return (bool) $ok;
 }

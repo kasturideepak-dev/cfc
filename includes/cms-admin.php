@@ -1565,6 +1565,12 @@ function cfc_admin_server(): never
     $html .= $row('Largest upload PHP accepts', (string) ini_get('upload_max_filesize'));
     $html .= $row('Largest POST PHP accepts', (string) ini_get('post_max_size'));
     $html .= $row('CMS limit per file', '16 MB');
+    // A 12 megapixel photo needs roughly 80 MB to resize, and more again when
+    // it carries rotation, so this is the number that decides whether a large
+    // photo uploads or dies halfway.
+    $mem = (string) ini_get('memory_limit');
+    $bytes = cfc_bytes_from_ini($mem);
+    $html .= $row('Memory PHP allows per request', $mem, $bytes <= 0 || $bytes >= 134217728);
     $html .= '</tbody></table></section>';
     if (!$heic) {
         $html .= '<p class="cms-help">To accept photos straight off an iPhone, this host needs the '
