@@ -537,9 +537,103 @@ function cfc_cms_social_icon(string $label): string
     return $icons['instagram'];
 }
 
+/**
+ * True when this server can actually read HEIC/HEIF. Phones shoot HEIC by
+ * default and GD cannot read it at all, so the format is only accepted where
+ * Imagick is present with the HEIF delegate -- otherwise the CMS would store a
+ * file no browser will display.
+ */
+function cfc_cms_heic_supported(): bool
+{
+    static $ok = null;
+    if ($ok !== null) {
+        return $ok;
+    }
+    if (!class_exists('Imagick')) {
+        return $ok = false;
+    }
+    try {
+        return $ok = (new Imagick())->queryFormats('HEI*') !== [];
+    } catch (Throwable $e) {
+        return $ok = false;
+    }
+}
+
+/**
+ * Converts a HEIC/HEIF upload to JPEG in place, so the ordinary WebP pipeline
+ * (which is GD, and GD cannot open HEIC) can take it from there. Returns the
+ * new absolute path, or null if the conversion failed.
+ */
+function cfc_cms_heic_to_jpeg(string $abs): ?string
+{
+    if (!cfc_cms_heic_supported() || !is_file($abs)) {
+        return null;
+    }
+    $jpegAbs = (string) preg_replace('/\.(heic|heif)$/i', '.jpg', $abs);
+    if ($jpegAbs === '' || $jpegAbs === $abs) {
+        $jpegAbs = $abs . '.jpg';
+    }
+    try {
+        $im = new Imagick();
+        $im->readImage($abs);
+        // A HEIC can carry a burst or a Live Photo, so take the first frame
+        // rather than writing out a numbered file per frame.
+        $im->setIteratorIndex(0);
+        $frame = $im->getImage();
+        $im->clear();
+        // Phones record rotation in EXIF, and stripImage() below discards it,
+        // so bake the rotation into the pixels first or everything shot in
+        // portrait arrives on its side.
+        if (method_exists($frame, 'autoOrient')) {
+            $frame->autoOrient();
+        }
+        $frame->setImageFormat('jpeg');
+        $frame->setImageCompressionQuality(92);
+        // Also drops the GPS tags a phone writes, which otherwise end up
+        // published alongside a photo of the client's outlet.
+        $frame->stripImage();
+        $written = $frame->writeImage($jpegAbs);
+        $frame->clear();
+        if (!$written || !is_file($jpegAbs) || filesize($jpegAbs) < 32) {
+            @unlink($jpegAbs);
+            return null;
+        }
+    } catch (Throwable $e) {
+        error_log('CFC HEIC convert failed: ' . $e->getMessage());
+        @unlink($jpegAbs);
+        return null;
+    }
+    @unlink($abs);
+    @chmod($jpegAbs, 0644);
+    return $jpegAbs;
+}
+
+/** The image types an upload field accepts, HEIC included where supported. */
+function cfc_cms_image_mimes(): array
+{
+    $list = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (cfc_cms_heic_supported()) {
+        $list[] = 'image/heic';
+        $list[] = 'image/heif';
+    }
+    return $list;
+}
+
+/** Why a file was refused, in terms the person uploading it can act on. */
+function cfc_cms_mime_refusal(string $mime): string
+{
+    if ($mime === 'image/heic' || $mime === 'image/heif') {
+        return 'This is an iPhone HEIC photo and this server cannot convert it. '
+            . 'On the phone open Settings > Camera > Formats and pick "Most Compatible", '
+            . 'or send the photo through WhatsApp or Mail first, which saves it as a JPEG.';
+    }
+    $shown = preg_match('#^[a-z0-9.+/-]{1,60}$#i', $mime) ? $mime : 'unknown type';
+    return 'That file type is not allowed (' . $shown . '). Use JPEG, PNG or WebP.';
+}
+
 function cfc_cms_allowed_mimes(): array
 {
-    return [
+    $map = [
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
         'image/webp' => 'webp',
@@ -547,6 +641,11 @@ function cfc_cms_allowed_mimes(): array
         'video/mp4' => 'mp4',
         'application/pdf' => 'pdf',
     ];
+    if (cfc_cms_heic_supported()) {
+        $map['image/heic'] = 'heic';
+        $map['image/heif'] = 'heif';
+    }
+    return $map;
 }
 
 function cfc_cms_upload(array $file, string $prefix = 'file', array $allow = []): ?string
@@ -579,7 +678,7 @@ function cfc_cms_upload(array $file, string $prefix = 'file', array $allow = [])
         $map = array_intersect_key($map, array_flip($allow));
     }
     if (!isset($map[$mime])) {
-        cfc_cms_notes('A file type was not allowed.');
+        cfc_cms_notes(cfc_cms_mime_refusal($mime));
         return null;
     }
     $ext = $map[$mime];
@@ -598,6 +697,21 @@ function cfc_cms_upload(array $file, string $prefix = 'file', array $allow = [])
     if (!move_uploaded_file($tmp, $dest)) {
         cfc_cms_notes('A file could not be saved.');
         return null;
+    }
+    // Turn a phone's HEIC into a JPEG before anything else looks at it, since
+    // every step below this is GD. If that fails the upload is refused rather
+    // than stored: a .heic left in place would be a gallery tile that renders
+    // as a broken image for every visitor.
+    if ($mime === 'image/heic' || $mime === 'image/heif') {
+        $converted = cfc_cms_heic_to_jpeg($dest);
+        if ($converted === null) {
+            @unlink($dest);
+            cfc_cms_notes('That iPhone photo could not be converted. Send it as a JPEG instead.');
+            return null;
+        }
+        $dest = $converted;
+        $name = basename($converted);
+        $mime = 'image/jpeg';
     }
     if (str_starts_with($mime, 'image/') && $mime !== 'image/gif') {
         $webp = cfc_cms_optimize_to_webp($dest, 1920);
@@ -743,7 +857,7 @@ function cfc_cms_save_page(string $page, array $post, array $files): bool
                 continue;
             }
             $allow = $type === 'image'
-                ? ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+                ? cfc_cms_image_mimes()
                 : array_keys(cfc_cms_allowed_mimes());
             $uploaded = null;
             if (isset($uploads['name'][$key]) && is_string($uploads['name'][$key])) {
@@ -816,7 +930,7 @@ function cfc_cms_collect_repeater(string $page, string $repKey, array $rep, arra
                     continue;
                 }
                 $allow = $type === 'image'
-                    ? ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+                    ? cfc_cms_image_mimes()
                     : array_keys(cfc_cms_allowed_mimes());
                 $uploaded = null;
                 if (isset($up['name'][$repKey][$i][$fkey]) && is_string($up['name'][$repKey][$i][$fkey])) {
@@ -1108,7 +1222,7 @@ function cfc_cms_gallery_add_one(array $file, int $si, string $expectTitle = '')
         ];
     }
 
-    $path = cfc_cms_upload($file, 'gallery-' . $si, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    $path = cfc_cms_upload($file, 'gallery-' . $si, cfc_cms_image_mimes());
     if ($path === null) {
         return ['ok' => false, 'error' => cfc_cms_last_note('The image could not be uploaded.')];
     }
@@ -1156,7 +1270,7 @@ function cfc_cms_gallery_add_files(array $files, int|string $si): array
             'tmp_name' => $bag['tmp_name'][$si][$i] ?? '',
             'error' => $bag['error'][$si][$i] ?? UPLOAD_ERR_NO_FILE,
             'size' => $bag['size'][$si][$i] ?? 0,
-        ], 'gallery-' . $si, ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+        ], 'gallery-' . $si, cfc_cms_image_mimes());
         if ($path) {
             $out[] = cfc_cms_gallery_entry($path);
         }
@@ -1254,7 +1368,7 @@ function cfc_cms_save_media_hub(array $post, array $files): bool
         }
         $file = (string) ($row['file'] ?? '');
         if ($replaceAt === (int) $i && isset($files['replace_one'])) {
-            $uploaded = cfc_cms_upload($files['replace_one'], 'media-hub', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+            $uploaded = cfc_cms_upload($files['replace_one'], 'media-hub', cfc_cms_image_mimes());
             if ($uploaded) {
                 $file = $uploaded;
             }
@@ -1273,7 +1387,7 @@ function cfc_cms_save_media_hub(array $post, array $files): bool
     $addFile = $files['add_file'] ?? null;
     $uploaded = null;
     if (is_array($addFile)) {
-        $uploaded = cfc_cms_upload($addFile, 'media-hub', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+        $uploaded = cfc_cms_upload($addFile, 'media-hub', cfc_cms_image_mimes());
     }
     if ($uploaded) {
         $href = $addHref !== '' ? $addHref : 'https://www.instagram.com/' . cfc_instagram_username() . '/';
@@ -1409,7 +1523,7 @@ function cfc_cms_save_blog_post(array $post, array $files, ?string $existingPath
     if (!empty($post['clear_image'])) {
         $image = '';
     }
-    $uploaded = isset($files['image_file']) ? cfc_cms_upload($files['image_file'], 'blog', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']) : null;
+    $uploaded = isset($files['image_file']) ? cfc_cms_upload($files['image_file'], 'blog', cfc_cms_image_mimes()) : null;
     if ($uploaded) {
         $image = $uploaded;
     } elseif (isset($post['image']) && trim((string) $post['image']) !== '') {

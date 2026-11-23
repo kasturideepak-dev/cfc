@@ -426,7 +426,7 @@ function cfc_admin_gallery_category(string $key, array $section, int $index, str
     $html .= '</div>';
     $html .= '<p class="cms-ggrid__empty" data-cat-empty' . ($count > 0 ? ' hidden' : '') . '>No photos yet. Upload some above, or drag photos in from another category.</p>';
     $html .= '<details class="cms-cat__fallback"><summary>Add photos without JavaScript</summary>'
-        . '<div class="cms-field"><input type="file" name="add[' . $k . '][]" accept="image/jpeg,image/png,image/webp,image/gif" multiple></div>'
+        . '<div class="cms-field"><input type="file" name="add[' . $k . '][]" accept="' . cfc_e(implode(',', cfc_cms_image_mimes())) . '" multiple></div>'
         . '<p class="cms-help">Fallback for when the uploader above cannot run. These are attached to the next save, so only a few files will get through at a time.</p></details>';
     $html .= '</section>';
     return $html;
@@ -462,7 +462,7 @@ function cfc_admin_gallery(): never
         }
         $html .= '</select></div>';
         $html .= '<div class="cms-field"><label class="cap">Choose images</label>'
-            . '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-up-input></div>';
+            . '<input type="file" accept="' . cfc_e(implode(',', cfc_cms_image_mimes())) . '" multiple data-up-input></div>';
         $html .= '<div class="cms-upload__go">'
             . '<button class="cms-btn" type="button" data-up-start disabled>Upload</button> '
             . '<button class="cms-btn cms-btn--ghost" type="button" data-up-stop hidden>Stop</button></div>';
@@ -1551,6 +1551,27 @@ function cfc_admin_server(): never
         $html .= $row((string) $ext, $ok ? 'loaded' : 'missing', (bool) $ok || !in_array($ext, $required, true));
     }
     $html .= '</tbody></table></section>';
+
+    // The three things that decide whether a client can actually get their
+    // files in and out, each of which depends on the host rather than the code.
+    $html .= '<section class="cms-group"><h2>Uploads and downloads</h2><table class="cms-table"><tbody>';
+    $heic = cfc_cms_heic_supported();
+    $html .= $row(
+        'iPhone HEIC photos',
+        $heic ? 'converted on upload' : 'not supported — the uploader asks for a JPEG instead',
+        $heic
+    );
+    $html .= $row('Excel (.xlsx) export', class_exists('ZipArchive') ? 'available' : 'unavailable — CSV only', class_exists('ZipArchive'));
+    $html .= $row('Largest upload PHP accepts', (string) ini_get('upload_max_filesize'));
+    $html .= $row('Largest POST PHP accepts', (string) ini_get('post_max_size'));
+    $html .= $row('CMS limit per file', '16 MB');
+    $html .= '</tbody></table></section>';
+    if (!$heic) {
+        $html .= '<p class="cms-help">To accept photos straight off an iPhone, this host needs the '
+            . '<code>imagick</code> PHP extension built with the HEIF delegate. Until then a HEIC upload '
+            . 'is refused with instructions rather than saved as a broken image.</p>';
+    }
+
     $html .= '<p class="cms-help">cPanel: MultiPHP Manager → PHP 8.1+. File Manager permissions 755 for folders, 644 for files. <code>data/</code> and <code>assets/uploads/cms/</code> must stay writable.</p>';
     cfc_admin_layout('Server', $html, 'server');
 }

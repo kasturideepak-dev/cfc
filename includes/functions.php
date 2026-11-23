@@ -116,7 +116,7 @@ function cfc_runtime_report(): array
     }
 
     $extensions = [];
-    foreach (['json', 'mbstring', 'fileinfo', 'session', 'filter', 'openssl', 'gd', 'curl', 'pdo_mysql'] as $ext) {
+    foreach (['json', 'mbstring', 'fileinfo', 'session', 'filter', 'openssl', 'gd', 'curl', 'pdo_mysql', 'zip', 'imagick'] as $ext) {
         $extensions[$ext] = extension_loaded($ext);
     }
 
